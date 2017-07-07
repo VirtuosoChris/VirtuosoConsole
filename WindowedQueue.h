@@ -1,56 +1,86 @@
 //
-//  RingBuffer.h
+//  WindowedQueue.h
 //  VirtuosoConsole
 //
-//  Created by Chris Pugh on 7/7/17.
+//  Created by Steve Braeger and Chris Pugh on 7/7/17.
 //
 //
 
 #ifndef RingBuffer_h
 #define RingBuffer_h
 
-#include <deque>
+#include <queue>
+
 namespace Virtuoso
 {
-    const std::size_t defaultRingbufferCapacity=10;
-
-    template <typename T>
-    class WindowedQueue
+    // wtf ? --> http://en.cppreference.com/w/cpp/language/using_declaration#Inheriting_constructors
+    template<class T>
+    class WindowedQueue: protected std::queue<T>
     {
-    private:
-        std::deque<T> data;
-
-        void shrinkToCapacity()
+        void fix_size()
         {
-            while (data.size() > capacity)
+            while (size() > m_capacity)
             {
-                data.pop_front();
+                std::queue<T>::pop();
             }
         }
 
+        std::size_t m_capacity;
+
     public:
 
-        std::size_t capacity;
-
-        WindowedQueue(std::size_t inputCapacity = defaultRingbufferCapacity) : capacity(inputCapacity)
+        WindowedQueue(std::size_t maxCapacity) : m_capacity(maxCapacity)
         {
         }
 
-        const std::string& operator[](std::size_t idx)
+        void capacity(std::size_t newCapacity)
         {
-            return data[idx];
+            m_capacity = newCapacity;
+            fix_size();
         }
 
-        void append(const T& str)
+        std::size_t capacity() const
         {
-            data.push_back(str);
-            shrinkToCapacity();
+            return m_capacity;
         }
 
-        std::size_t size() const
+        ///using std::queue<T>::queue;
+        using std::queue<T>::operator=;
+        using std::queue<T>::front;
+        using std::queue<T>::back;
+        using std::queue<T>::empty;
+        using std::queue<T>::size;
+        using std::queue<T>::pop;
+        using std::queue<T>::swap;
+
+        T& operator[](size_t idx)
         {
-            return data.size();
+            return this->c[idx];
         }
+
+        const T& operator[](size_t idx) const
+        {
+            return this->c[idx];
+        }
+
+        template<class... Args>
+        void emplace(Args&&... args)
+        {
+            std::queue<T>::emplace(std::forward<Args>(args)...);
+            fix_size();
+        }
+
+        void push( const T& value )
+        {
+            std::queue<T>::push(value);
+            fix_size();
+        }
+        
+        void push( T&& value )
+        {
+            std::queue<T>::push(value);
+            fix_size();
+        }      
     };
 }
 #endif /* RingBuffer_h */

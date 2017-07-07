@@ -225,7 +225,7 @@ void Virtuoso::GameConsole::commandExecute(std::istream* input/*, bool flush*/ )
 
         getline( (*input), lineTemp);
 
-        history_buffer.append(lineTemp);
+        history_buffer.push(lineTemp);
 
         output().echo()<<lineTemp<<std::endl;
 
@@ -354,7 +354,7 @@ void Virtuoso::GameConsole::loadHistoryBuffer(std::istream& inFile)
 
         if(tmp.length())
         {
-            history_buffer.append(tmp);
+            history_buffer.push(tmp);
         }
 
     }
