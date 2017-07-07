@@ -5,6 +5,7 @@
 
 using namespace std::placeholders;
 
+const unsigned int Virtuoso::GameConsole::defaultHistorySize = 10; ///default size of the history file
 
 void Virtuoso::GameConsole::executeFile(std::ifstream& f)
 {
@@ -222,12 +223,9 @@ void Virtuoso::GameConsole::commandExecute(std::istream* input/*, bool flush*/ )
     {
         std::string lineTemp;
 
-
         getline( (*input), lineTemp);
 
-#ifdef HISTORY_FILE
-        history_file.push_back(lineTemp);
-#endif
+        history_buffer.append(lineTemp);
 
         output().echo()<<lineTemp<<std::endl;
 
@@ -300,8 +298,6 @@ void Virtuoso::GameConsole::bindBasicCommands()
                 ),
                 "runs the commands in a text file named by the argument");
 
-
-
 }
 
 
@@ -309,9 +305,7 @@ void Virtuoso::GameConsole::bindBasicCommands()
 ///binds the default commands to the command table.
 Virtuoso::GameConsole::GameConsole(std::istream& input, BaseLog& log)//was ostream
     :
-#ifdef HISTORY_FILE
-    history_file(defaultHistorySize),
-#endif
+    history_buffer(defaultHistorySize),
     consoleInput(&input), consoleOutput(&log)
 {
 
@@ -321,15 +315,13 @@ Virtuoso::GameConsole::GameConsole(std::istream& input, BaseLog& log)//was ostre
 }
 
 
-
-#ifdef HISTORY_FILE
-void Virtuoso::GameConsole::loadHistoryFile(const std::string& inFile)
+void Virtuoso::GameConsole::loadHistoryBuffer(const std::string& inFile)
 {
     std::ifstream hfi(inFile);
 
     if(hfi.is_open())
     {
-        loadHistoryFile(hfi);
+        loadHistoryBuffer(hfi);
         hfi.close();
     }
     else
@@ -341,18 +333,18 @@ void Virtuoso::GameConsole::loadHistoryFile(const std::string& inFile)
 
 
 
-void Virtuoso::GameConsole::saveHistoryFile(const std::string& outFile)
+void Virtuoso::GameConsole::saveHistoryBuffer(const std::string& outFile)
 {
-    if(history_file.size())
+    if(history_buffer.size())
     {
         std::ofstream hfo(outFile);
-        saveHistoryFile(hfo);
+        saveHistoryBuffer(hfo);
         hfo.close();
     }
 }
 
 
-void Virtuoso::GameConsole::loadHistoryFile(std::istream& inFile)
+void Virtuoso::GameConsole::loadHistoryBuffer(std::istream& inFile)
 {
     while(!inFile.eof())
     {
@@ -362,27 +354,22 @@ void Virtuoso::GameConsole::loadHistoryFile(std::istream& inFile)
 
         if(tmp.length())
         {
-            history_file.push_back(tmp);
+            history_buffer.append(tmp);
         }
 
     }
-
-
 }
 
-void Virtuoso::GameConsole::saveHistoryFile(std::ofstream& outfile)
+void Virtuoso::GameConsole::saveHistoryBuffer(std::ofstream& outfile)
 {
 
-    for(unsigned int i = 0; i < history_file.size(); i++)
+    for(unsigned int i = 0; i < history_buffer.size(); i++)
     {
-        outfile<<history_file[i]<<std::endl;
+        outfile<<history_buffer[i]<<std::endl;
     }
 
 
 }
-
-#endif
-
 
 
 void Virtuoso::GameConsole::dereferenceVariables(std::string& str)
@@ -414,10 +401,7 @@ void Virtuoso::GameConsole::dereferenceVariables(std::string& str)
             SimpleLog tempLog(sstr);
             consoleOutput = &tempLog;
 
-
-            std::map< std::string, std::function< void (void) > >::iterator it =
-
-                cvarPrintFTable.find(substr);
+            std::map< std::string, std::function< void (void) > >::iterator it = cvarPrintFTable.find(substr);
 
             //check that variable exists
             if(it != cvarPrintFTable.end())
@@ -435,24 +419,18 @@ void Virtuoso::GameConsole::dereferenceVariables(std::string& str)
 
                 consoleOutput->error()<<"Variable "<<substr<<" not found"<<std::endl;
             }
-
         }
-
     }
 }
 
 
 Virtuoso::GameConsole::GameConsole()
 :
-#ifdef HISTORY_FILE
-    history_file(defaultHistorySize),
-#endif
+history_buffer(defaultHistorySize),
 consoleInput(NULL),
 consoleOutput(NULL)
 {
-
     bindBasicCommands();
-
 }
 
 

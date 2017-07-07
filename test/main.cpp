@@ -73,19 +73,19 @@ int main()
     //bind the variable to the console
 	console.bindCVar("health", health, "player life");
 
-    #ifdef HISTORY_FILE
-        //populate the history buffer with commands from a previous run of the program
-        console.loadHistoryFile("COMMAND_HISTORY.txt");
-    #endif
+
+    //populate the history buffer with commands from a previous run of the program
+    console.loadHistoryBuffer("COMMAND_HISTORY.txt");
+
 
 	while(running){ //command loop
         std::cout<<"\nexecute next instruction"<<std::endl;
 	 	console.commandExecute();
 	}
 
-    #ifdef HISTORY_FILE
-        std::cout<<"Saving history file"<<std::endl;
-        console.saveHistoryFile("COMMAND_HISTORY.txt"); //save commands from this run
-    #endif
+
+    std::cout<<"Saving history file"<<std::endl;
+    console.saveHistoryBuffer("COMMAND_HISTORY.txt"); //save commands from this run
+
 
 }

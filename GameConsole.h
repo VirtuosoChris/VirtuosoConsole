@@ -9,10 +9,6 @@
 
 #include <type_traits>
 
-#ifdef HISTORY_FILE
-#include <boost/circular_buffer.hpp>
-#endif
-
 #include <fstream>
 #include <string>
 
@@ -23,10 +19,7 @@
 
 #include <sstream>
 
-
-#ifdef HISTORY_FILE
-const unsigned int defaultHistorySize = 10; ///size of the history file
-#endif
+#include "WindowedQueue.h"
 
 ///This is the backend of a console interface for games, to help with debugging, cheats, etc
 ///This is intended to be lightweight and efficient, rather than a general purpose scripting solution.
@@ -38,7 +31,6 @@ const unsigned int defaultHistorySize = 10; ///size of the history file
 ///Comments with # at the beginning of a line are supported also for further help with ini files and such
 ///
 ///\todo more detailed documentation
-///\todo ifdef's in headers are kind of icky.  use PIMPL on history_file?
 
 namespace Virtuoso{
 
@@ -47,9 +39,11 @@ class GameConsole
 
 public:
 
-#ifdef HISTORY_FILE
-    boost::circular_buffer<std::string> history_file; ///history buffer of previous commands
-#endif
+    static const unsigned int defaultHistorySize; ///size of the history file
+
+    typedef WindowedQueue<std::string> ConsoleHistoryBuffer;
+
+    ConsoleHistoryBuffer history_buffer; ///history buffer of previous commands
 
     BaseLog& output(); ///log getter
 
@@ -119,21 +113,17 @@ public:
     ///execute commands from a file named by input string until EOF
     void executeFile(const std::string& f);
 
-#ifdef HISTORY_FILE
-
     ///populate the command buffer from an input file named by string inFile
-    void loadHistoryFile(const std::string& inFile);
+    void loadHistoryBuffer(const std::string& inFile);
 
     ///write the history buffer to file named by string outFile
-    void saveHistoryFile(const std::string& outFile);
+    void saveHistoryBuffer(const std::string& outFile);
 
     ///populate the command buffer from an input file named by istream inFile
-    void loadHistoryFile(std::istream& inFile);
+    void loadHistoryBuffer(std::istream& inFile);
 
     ///write the history buffer to file named by ostream outFile
-    void saveHistoryFile(std::ofstream& outfile);
-#endif
-
+    void saveHistoryBuffer(std::ofstream& outfile);
 
 private:
 
