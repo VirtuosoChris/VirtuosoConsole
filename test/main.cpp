@@ -83,8 +83,8 @@ int main()
 	 	console.commandExecute();
 	}
 
-	std::cout<<"Saving history file"<<std::endl;
     #ifdef HISTORY_FILE
+        std::cout<<"Saving history file"<<std::endl;
         console.saveHistoryFile("COMMAND_HISTORY.txt"); //save commands from this run
     #endif
 

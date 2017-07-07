@@ -381,6 +381,7 @@ void Virtuoso::GameConsole::saveHistoryFile(std::ofstream& outfile)
 
 }
 
+#endif
 
 
 
@@ -442,13 +443,12 @@ void Virtuoso::GameConsole::dereferenceVariables(std::string& str)
 
 
 Virtuoso::GameConsole::GameConsole()
-    :
+:
 #ifdef HISTORY_FILE
     history_file(defaultHistorySize),
-    consoleInput(NULL),
-    consoleOutput(NULL)
 #endif
-
+consoleInput(NULL),
+consoleOutput(NULL)
 {
 
     bindBasicCommands();
@@ -456,5 +456,5 @@ Virtuoso::GameConsole::GameConsole()
 }
 
 
-#endif
+
 
