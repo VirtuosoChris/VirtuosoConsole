@@ -27,16 +27,11 @@ inline void Virtuoso::GameConsole::commandExecute()
 }
 
 
-
-
-
 template <class T>
 inline T Virtuoso::GameConsole::makeTemp()
 {
-
-    static T temp;
+    T temp{};
     return temp;
-
 }
 
 
