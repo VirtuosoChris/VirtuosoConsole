@@ -34,7 +34,7 @@ template <class T>
 inline T Virtuoso::GameConsole::makeTemp()
 {
 
-    T temp;
+    static T temp;
     return temp;
 
 }
