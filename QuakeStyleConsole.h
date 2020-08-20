@@ -40,18 +40,18 @@
 #include <iostream>
 #include <fstream>
 #include <map>
-#include <queue>
+#include <deque>
 #include <functional>
 #include <sstream>
+#include <map>
+#include <memory>
 
-#define PUBLIC_INTERFACE public // pay attention to everything  in the public_interface section, it's what you use in your code
-#define IMPLEMENTATION // Everything below this notation is what's needed to make the console work internally
 
 namespace Virtuoso
 {
 class QuakeStyleConsole
 {
-PUBLIC_INTERFACE: // the methods in this section are what you should use in your code
+public: // the methods in this section are what you should use in your code
 
     /// Constructor binds the default commands to the command table & initializes history buffer
     QuakeStyleConsole();
@@ -140,24 +140,19 @@ PUBLIC_INTERFACE: // the methods in this section are what you should use in your
     /// sets the help string (see built in 'help' command) for a given topic
     void setHelpTopic(const std::string& topic, const std::string& data);
 
-    template <typename t>
-    class WindowedQueue;
+    const std::deque<std::string>& historyBuffer() const;
     
-    typedef WindowedQueue<std::string> ConsoleHistoryBuffer;
-    
-    const ConsoleHistoryBuffer& historyBuffer() const;
-    
-IMPLEMENTATION
+protected:
 
     /// WindowedQueue - We implement a ring buffer for the command history as a queue
     template<class T>
-    class WindowedQueue: protected std::queue<T>
+    class WindowedQueue: public std::deque<T>
     {
         void fix_size()
         {
-            while (size() > m_capacity)
+            while (std::deque<T>::size() > m_capacity)
             {
-               std::queue<T>::pop();
+               std::deque<T>::pop_front();
             }
         }
 
@@ -179,46 +174,33 @@ IMPLEMENTATION
         {
             return m_capacity;
         }
-
-        using std::queue<T>::operator=;
-        using std::queue<T>::front;
-        using std::queue<T>::back;
-        using std::queue<T>::empty;
-        using std::queue<T>::size;
-        using std::queue<T>::pop;
-        using std::queue<T>::swap;
-
-        T& operator[](size_t idx)
-        {
-            return this->c[idx];
-        }
-
-        const T& operator[](size_t idx) const
-        {
-            return this->c[idx];
-        }
+		using std::deque<T>::operator[];
 
         template<class... Args>
         void emplace(Args&&... args)
         {
-            std::queue<T>::emplace(std::forward<Args>(args)...);
+            std::deque<T>::emplace_back(std::forward<Args>(args)...);
             fix_size();
         }
 
         void push( const T& value )
         {
-            std::queue<T>::push(value);
+            std::deque<T>::push_back(value);
             fix_size();
         }
 
         void push( T&& value )
         {
-            std::queue<T>::push(value);
+            std::deque<T>::push_back(value);
             fix_size();
         }
+		void pop()
+		{
+			std::deque<T>::pop_front();
+		}
     };
        
-protected:
+    typedef WindowedQueue<std::string> ConsoleHistoryBuffer;
 
     static const unsigned int defaultHistorySize = 10u; ///size of the history file
 
@@ -848,7 +830,7 @@ inline void Virtuoso::QuakeStyleConsole::saveHistoryBuffer(std::ofstream& outfil
 }
 
 
-inline const Virtuoso::QuakeStyleConsole::ConsoleHistoryBuffer& Virtuoso::QuakeStyleConsole::historyBuffer() const
+inline const std::deque<std::string>& Virtuoso::QuakeStyleConsole::historyBuffer() const
 {
     return history_buffer;
 }
