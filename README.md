@@ -1,55 +1,27 @@
 Virtuoso Console
 by Christopher Pugh
 ======================
-This code is the backend for a Quake-style console.  You can bind variables and functions from your C++ code with minimal application-side code,  and use them at runtime.  If nothing else, this code is a great workout for std::bind, std::function, and variadic templates.  
+This code is a single file header only library containint the backend for a Quake-style console.  You can bind variables and functions from your C++ code with minimal application-side code,  and use them at runtime.  If nothing else, this code is a great workout for std::bind, std::function, and variadic templates.  
 
-The frontend (GUI) is in a separate library to be released.  
+A graphical console widget using IMGUI is coming to this repo soon.
 
-A point-by-point explanation of the console's features is contained below.  When you are done reading this file the first thing you should do is to build and run the test program included.  Try playing with the various commands, especially "help", "listCmd", and "listCVars"  In the included CMake configuration, this is build target ConsoleTest.  Then you should take a look at test/main.cpp to see a good example of code that uses the console.  
-
-Note that all classes and functions are in the Virtuoso namespace, so you should do 
-
-	using namespace Virtuoso; 
-
-in your code, or prefix everything with Virtuoso:: to resolve the namespace.  
+Look at the test programs in the "demos" folder, read the library headers, and this file to understand usage.
 
 
 Creating a console
 ====================
-It is as simple as declaring a variable of the GameConsole class.  You need an istream and a Virtuoso::BaseLog for construction.
+It is as simple as declaring a variable of the GameConsole class.  
 
-GameConsole console(std::cin,log);
+Virtuoso::QuakeStyleConsole console;
 
-The input can be any istream including std::cin.  
 
-A Virtuoso::BaseLog is a pure virtual class that has several pstreams that can be written to.   They are each accessed by a particular virtual function. 
+Reading and Executing Commands:
+=================================
+Simply call console.commandExecute(inputStream, outputStream) to read a line from the console's input stream and execute commands.
 
-For instance:
-log.error()<<"Error";
-log.status()<<"general message";
-log.warning()<<"you're doing something you shouldn't!";
+This is what you would call in a graphical console when the user hits enter.  Or you can just call it in a loop when you're using cin and cout in a terminal program for example.
 
-This is useful to direct different kinds of messages to different places, or for a graphical console to adjust text formatting based on the type of message. 
-
-Since the BaseLog class is pure virtual you have one of two options: 
-1) Overload the BaseLog with the appropriate functions, based on the needs of your application
-2) Use Virtuoso::SimpleLog.
-
-The second option is really easy.  It simply uses a single output stream for all write operations.  The default constructor for this class points the ostream to std::cout.  Thus, if you want to test the console with standard io, the code is simply: 
-
-SimpleLog log;
-GameConsole console(std::cin, log);
-
-SimpleLog allows you to construct an instance with a reference to an ostream, or to change the stream later on with the setStream method.  
-
-You can change the input stream and log pointers of the console later with the following methods: 
-	void setConsoleInput(std::istream& in); ///setter for console istream
-    void setConsoleOutput(BaseLog& out); ///setter for console output log
-	
-You can get a reference to the console's log or istream with the methods:
-
-	BaseLog& output(); ///log getter
-    std::istream& input(); ///input stream getter
+The input can be any istream including std::cin. And the output can be any ostream, including cout or a file
 
 	
 Built in commands: 
@@ -74,22 +46,10 @@ set: assigns a value to a variable.  Uses istream operator >> to parse.
 
 var: declare a variable dynamically.  
 
-	
-	
-Writing to Console:
-=========================
-You can directly write to your log instance using the virtual functions, or the () operator. 
-log()<<"Something";//writes to log.status()
-log.error()<<"error";
-
-Or, you can access the input through the console: 
-console.output().status()<<"something\n";
-
-
 
 CVars: 
 ========
-Variables can be bound from your program to the console as a console variable ("cVar" as a shorthand).  They can then be printed, set, or dereferenced in console commands.  
+Variables can be bound from your program to the console as a console variable.  They can then be printed, set, or dereferenced in console commands.  
 
 You can bind any arbitrary variable in your C++ code to the console, allowing it to be printed, set, or dereferenced in console commands.  The only requirement is that the datatype of the variable in C++ code has the >> and << operators overloaded for iostreams.
 
@@ -145,21 +105,23 @@ For instance:
 
 Commands: 
 =========
-You can add arbitrary C++ functions to your code by giving the console a std::function object.  
+You can add arbitrary C++ functions to your code by giving the console a function pointer or std::function object.
+You can add member functions too.  The console automatically parses any argument list of any datatype that can be read from an istream, so you never have to write a parser.
+
 The functions should return void, but they may take any argument type.  The requirement is that the variable types used as arguments have the >> operator overloaded for istream input.  They must also all have a default constructor.  Code will be automatically generated that parses all the arguments to the function from the input stream and pass them in for you.  
 
 You use the bindCommand method on the console like the following example: 
+
+    //function we want to bind as a console command
+    void printSum(const int& a, const int& b){
+
+        std::cout<<a+b<<std::endl;
+
+    }
+
+    //....
 	
-	//function we want to bind as a console command
-	void printSum(const int& a, const int& b){
-
-		std::cout<<a+b<<std::endl;
-
-	}
-
-	//....
-	
-   console.bindCommand("sum", printSum);
+    console.bindCommand("sum", printSum);
   
 An optional third argument gives the help string for the command.  Once the command is bound to the console, you simply type the name of the command followed by any arguments.  For instance, 
 	
@@ -167,22 +129,31 @@ An optional third argument gives the help string for the command.  Once the comm
 
 prints 2 when it is called from the demo program.	
 
-Note that since printSum is a free C++ function rather than an instance method, a std::function object did not explicitly need to be created.  
 
-You can add commands that are methods called on instance variables of a class as well.  See the documentation of std::function and std::bind for more information on this.  Also see the implementation of the "sumFiveValues" command in test/main.cpp using the Adder class.  All you really need is a C style function pointer or a std::function object that returns void and the library takes care of the rest for you.  
+If you want to bind a member function as a console command, you need to call console.bindMemberCommand() and pass the caller as an argument.  For example : 
 
+class Adder
+{
+    std::string str;
 
+    public:
 
-Reading and Executing Commands:
-=================================
-Simply call console.commandExecute() to read a line from the console's input stream and execute commands.  
-This is what you would call in a graphical console when the user hits enter.  Or you can just call it in a loop when you're using cin and cout.  
+        Adder(const std::string& pr):str(pr){}
 
+        void add(int a, int b, int c, int d, int e)
+        {
+            std::clog << str << a+b+c+d+e << std::endl;
+        }
+};
+
+... 
+
+console.bindMemberCommand("sumFiveValues", a, &Adder::add, "Given five integers as input, sum them all.  This demonstrates bindMemberCommand() using an object");
 
 
 History File: 
 ===============
-The CMake configuration will try and find Boost.  If it is found, the circular buffer container will be included, and HISTORY_FILE will be defined.  This enables support for a cache of previously used console commands to be created.  There is also support for saving and loading this command buffer, so that multiple runs of the program have access to recently used commands.  
+ The console has a cache of previously used console commands.  There is also support for saving and loading this command buffer, so that multiple runs of the program have access to recently used commands.  
 
 At the beginning of your program you would call:   
 console.loadHistoryFile("COMMAND_HISTORY.txt");
@@ -191,7 +162,6 @@ At the end of your program you would call:
 console.saveHistoryFile("COMMAND_HISTORY.txt");
 
 You can also give these functions iostream references instead of strings containing file names.  
-
 
 Comments
 ===========
