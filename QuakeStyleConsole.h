@@ -39,11 +39,10 @@
 
 #include <iostream>
 #include <fstream>
-#include <map>
+#include <unordered_map>
 #include <deque>
 #include <functional>
 #include <sstream>
-#include <map>
 #include <memory>
 
 
@@ -208,10 +207,10 @@ protected:
 
     ConsoleHistoryBuffer history_buffer; ///history buffer of previous commands
   
-    typedef std::map < std::string, ConsoleFunc > CommandTable;
-    typedef std::map < std::string, ConsoleFunc > CVarReadTable;
-    typedef std::map < std::string, ConsoleFunc > CVarPrintTable;
-    typedef std::map < std::string, std::string > HelpTable;
+    typedef std::unordered_map < std::string, ConsoleFunc > CommandTable;
+    typedef std::unordered_map < std::string, ConsoleFunc > CVarReadTable;
+    typedef std::unordered_map < std::string, ConsoleFunc > CVarPrintTable;
+    typedef std::unordered_map < std::string, std::string > HelpTable;
     
     /// maps strings naming cVars to functions which read them from a std::istream.
     /// This allows the console to parse variables of any type representable as text without modifying the console code or adding custom parsing code.
