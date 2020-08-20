@@ -51,10 +51,12 @@ namespace Virtuoso
 {
 class QuakeStyleConsole
 {
-public: // the methods in this section are what you should use in your code
 
+public: // the methods in this section are what you should use in your code
+	static const unsigned int defaultHistorySize = 10u; ///size of the history file
+	
     /// Constructor binds the default commands to the command table & initializes history buffer
-    QuakeStyleConsole();
+    QuakeStyleConsole(std::size_t maxHistory=defaultHistorySize);
     
     // --------------------------------------//
     /* --------- COMMAND EXECUTION --------- */
@@ -202,7 +204,7 @@ protected:
        
     typedef WindowedQueue<std::string> ConsoleHistoryBuffer;
 
-    static const unsigned int defaultHistorySize = 10u; ///size of the history file
+
 
     ConsoleHistoryBuffer history_buffer; ///history buffer of previous commands
   
@@ -878,8 +880,8 @@ inline void Virtuoso::QuakeStyleConsole::dereferenceVariables(std::istream& is, 
 }
 
 
-inline Virtuoso::QuakeStyleConsole::QuakeStyleConsole()
-: history_buffer(defaultHistorySize)
+inline Virtuoso::QuakeStyleConsole::QuakeStyleConsole(size_t maxCapacity)
+: history_buffer(maxCapacity)
 {
     bindBasicCommands();
 }
