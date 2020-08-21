@@ -52,7 +52,8 @@ class QuakeStyleConsole
 {
 
 public: // the methods in this section are what you should use in your code
-	static const unsigned int defaultHistorySize = 10u; ///size of the history file
+	
+    static const unsigned int defaultHistorySize = 10u; ///size of the history file
 	
     /// Constructor binds the default commands to the command table & initializes history buffer
     QuakeStyleConsole(std::size_t maxHistory=defaultHistorySize);
