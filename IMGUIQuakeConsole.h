@@ -139,7 +139,7 @@ public:
 };
 
 
-struct ConsoleWidget : public Virtuoso::QuakeStyleConsole, public MultiStream//, public std::ostream
+struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStream//, public std::ostream
 {
     ConsoleBuf            strb;
     std::ostream          consoleStream;
@@ -149,10 +149,9 @@ struct ConsoleWidget : public Virtuoso::QuakeStyleConsole, public MultiStream//,
     bool                  AutoScroll;
     bool                  ScrollToBottom;
     
-    ConsoleWidget() : consoleStream(&strb)
+    IMGUIQuakeConsole() : consoleStream(&strb)
     {
         addStream(consoleStream);
-        addStream(std::cerr);
         
         ClearLog();
         memset(InputBuf, 0, sizeof(InputBuf));
@@ -161,10 +160,10 @@ struct ConsoleWidget : public Virtuoso::QuakeStyleConsole, public MultiStream//,
         AutoScroll = true;
         ScrollToBottom = false;
         
-        bindMemberCommand("Clear", *this, &ConsoleWidget::ClearLog, "Clear the console");
+        bindMemberCommand("Clear", *this, &IMGUIQuakeConsole::ClearLog, "Clear the console");
     }
     
-    ~ConsoleWidget()
+    ~IMGUIQuakeConsole()
     {
     }
 
@@ -350,7 +349,7 @@ struct ConsoleWidget : public Virtuoso::QuakeStyleConsole, public MultiStream//,
     // In C++11 you'd be better off using lambdas for this sort of forwarding callbacks
     static int TextEditCallbackStub(ImGuiInputTextCallbackData* data)
     {
-        ConsoleWidget* console = (ConsoleWidget*)data->UserData;
+        IMGUIQuakeConsole* console = (IMGUIQuakeConsole*)data->UserData;
         return console->TextEditCallback(data);
     }
 
@@ -474,11 +473,5 @@ struct ConsoleWidget : public Virtuoso::QuakeStyleConsole, public MultiStream//,
         return 0;
     }
 };
-
-static void ShowExampleAppConsole(bool* p_open)
-{
-    static ConsoleWidget console;
-    console.Draw("Example: Console", p_open);
-}
 
 #endif /* ConsoleWidget_h */

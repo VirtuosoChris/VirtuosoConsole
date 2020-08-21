@@ -25,8 +25,15 @@
 
 struct ConsoleApplication : public GLFWApplication
 {
+    IMGUIQuakeConsole console;
+
     ConsoleApplication()
     {
+        console << "Console constructor" << std::endl;
+        
+        ImGuiContext* ctx = ImGui::CreateContext();
+        ImGui::SetCurrentContext(ctx);
+        ImGui_ImplGlfw_Init(window, true, GlfwClientApi_OpenGL);
     }
     
     void render()
@@ -45,7 +52,7 @@ struct ConsoleApplication : public GLFWApplication
         ImGui::NewFrame();
 
         bool open;
-        ShowExampleAppConsole(&open);
+        console.Draw("Quake Style Console Demo", &open);
         
         ImGui::EndFrame();
         ImGui::Render();
@@ -68,12 +75,6 @@ int main(void)
         glfwTerminate();
         return -1;
     }
-    
-    app.makeCurrent();
-
-    ImGuiContext* ctx = ImGui::CreateContext();
-    ImGui::SetCurrentContext(ctx);
-    ImGui_ImplGlfw_Init(app.window, true, GlfwClientApi_OpenGL);
     
     app.mainLoop();
    
