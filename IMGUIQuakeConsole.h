@@ -89,18 +89,71 @@ struct ConsoleBuf : public std::streambuf
 };
 
 
-
-struct ConsoleWidget : public Virtuoso::QuakeStyleConsole, public std::ostream
+#include <unordered_set>
+class MultiStreamBuf: public  std::streambuf
 {
-    ConsoleBuf strb;
+    public:
+
+        std::unordered_set<std::ostream*> streams;
+       
+        MultiStreamBuf()
+        {
+        }
+
+        int overflow(int in)
+        {
+            char c = in;///\todo check for eof, etc?
+            for (std::ostream* str : streams )
+            {
+                (*str) << c;
+            }
+            return 1;
+        }
+
+        std::streamsize xsputn ( const char * s, std::streamsize n )
+        {
+            std::streamsize ssz=0;
+
+            for (std::ostream* str : streams )
+            {
+               ssz = str->rdbuf()->sputn(s, n);
+            }
+
+            return ssz;
+        }
+};
+
+class MultiStream : public std::ostream
+{
+    MultiStreamBuf buf;
+public:
+    MultiStream() : std::ostream(&buf)
+    {
+        
+    }
+    
+    void addStream(std::ostream& str)
+    {
+       buf.streams.insert(&str);
+    }
+};
+
+
+struct ConsoleWidget : public Virtuoso::QuakeStyleConsole, public MultiStream//, public std::ostream
+{
+    ConsoleBuf            strb;
+    std::ostream          consoleStream;
     char                  InputBuf[256];
     int                   HistoryPos;    // -1: new line, 0..History.Size-1 browsing history.
     ImGuiTextFilter       Filter;
     bool                  AutoScroll;
     bool                  ScrollToBottom;
     
-    ConsoleWidget() : std::ostream(&strb)
+    ConsoleWidget() : consoleStream(&strb)
     {
+        addStream(consoleStream);
+        addStream(std::cerr);
+        
         ClearLog();
         memset(InputBuf, 0, sizeof(InputBuf));
         HistoryPos = -1;
@@ -280,14 +333,6 @@ struct ConsoleWidget : public Virtuoso::QuakeStyleConsole, public std::ostream
             ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
 
         ImGui::End();
-        
-        static bool once = false;
-        //if (!once)
-        {
-            //(*this)<<"[error] : abcdefg\n\n";
-            //(*this)<<"\033[31;1mbold red text\033[0m\n";
-            once = true;
-        }
     }
 
     void ExecCommand(const char* command_line)
