@@ -1,0 +1,12 @@
+[submodule "demos/Depends/imgui"]
+	path = demos/Depends/imgui
+	url = https://github.com/ocornut/imgui
+[submodule "demos/Depends/glhpp"]
+	path = demos/Depends/glhpp
+	url = https://github.com/Steve132/glhpp
+[submodule "demos/Depends/glfw"]
+	path = demos/Depends/glfw
+	url = https://github.com/glfw/glfw
+[submodule "demos/Depends/gl_hpp"]
+	path = demos/Depends/gl_hpp
+	url = https://github.com/VirtuosoChris/glhpp
