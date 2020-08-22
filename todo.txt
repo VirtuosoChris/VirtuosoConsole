@@ -1,0 +1,4 @@
+Feature Wishlist
+- & dereference operator that prints the address of a variable, and the ability to pass pointers to console functions
+
+- Ability to pass a lambda to bindCommand without having to assign it to an std function first
