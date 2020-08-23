@@ -9,17 +9,23 @@
 #define ConsoleWidget_h
 
 #include "QuakeStyleConsole.h"
+#include <regex>
+#include <unordered_set>
+
+const ImVec4 COMMENT_COLOR = ImVec4(1.0f, 0.8f, 0.6f, 1.0f);
+const ImVec4 ERROR_COLOR = ImVec4(2.0f, 0.2f, 0.2f, 1.0f);
+const ImVec4 WARNING_COLOR = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
 
 struct ConsoleBuf : public std::streambuf
 {
     std::vector<std::string> items;
     bool parsingANSICode = false;
-
+    
     struct membuf: std::streambuf
     {
         membuf(const char* begin, const char* end)
         {
-             this->setg((char*)begin, (char*)begin, (char*)end);
+            this->setg((char*)begin, (char*)begin, (char*)end);
         }
     };
     
@@ -33,7 +39,7 @@ struct ConsoleBuf : public std::streambuf
         int idx = items.size()-1;
         return items[idx];
     }
-
+    
     int overflow(int c)
     {
         if (c != EOF)
@@ -53,16 +59,15 @@ struct ConsoleBuf : public std::streambuf
                         items.push_back("");
                         parsingANSICode = false;
                     }
-
+                    
                     break;
                 }
                 default:
                 {
-                     curStr() +=(char)c;
+                    curStr() +=(char)c;
                 }
             }
         }
-
         return c;
     }
 
@@ -71,13 +76,13 @@ struct ConsoleBuf : public std::streambuf
         membuf mb(s, s + n);
         
         std::istream ib(&mb);
-
+        
         while (!ib.eof())
         {
             std::string ln;
             std::getline(ib, ln);
             curStr()+=ln;
-
+            
             if (!ib.eof())
             {
                 items.push_back("");
@@ -89,38 +94,37 @@ struct ConsoleBuf : public std::streambuf
 };
 
 
-#include <unordered_set>
 class MultiStreamBuf: public  std::streambuf
 {
-    public:
-
-        std::unordered_set<std::ostream*> streams;
-       
-        MultiStreamBuf()
+public:
+    
+    std::unordered_set<std::ostream*> streams;
+    
+    MultiStreamBuf()
+    {
+    }
+    
+    int overflow(int in)
+    {
+        char c = in;///\todo check for eof, etc?
+        for (std::ostream* str : streams )
         {
+            (*str) << c;
         }
-
-        int overflow(int in)
+        return 1;
+    }
+    
+    std::streamsize xsputn ( const char * s, std::streamsize n )
+    {
+        std::streamsize ssz=0;
+        
+        for (std::ostream* str : streams )
         {
-            char c = in;///\todo check for eof, etc?
-            for (std::ostream* str : streams )
-            {
-                (*str) << c;
-            }
-            return 1;
+            ssz = str->rdbuf()->sputn(s, n);
         }
-
-        std::streamsize xsputn ( const char * s, std::streamsize n )
-        {
-            std::streamsize ssz=0;
-
-            for (std::ostream* str : streams )
-            {
-               ssz = str->rdbuf()->sputn(s, n);
-            }
-
-            return ssz;
-        }
+        
+        return ssz;
+    }
 };
 
 class MultiStream : public std::ostream
@@ -134,12 +138,185 @@ public:
     
     void addStream(std::ostream& str)
     {
-       buf.streams.insert(&str);
+        buf.streams.insert(&str);
     }
 };
 
 
-struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStream//, public std::ostream
+struct Rule
+{
+    std::regex rule;
+    ImVec4 color;
+    bool hasColor;
+};
+
+typedef std::vector<Rule> RuleSet;
+
+// reference : http://www.cplusplus.com/reference/regex/ECMAScript/
+void makeDefaultRules(RuleSet& rules)
+{
+    rules.push_back(
+                    {
+        std::regex("\\[error\\].*"),
+        ERROR_COLOR,
+        true // hasColor
+    });
+    
+    rules.push_back(
+                    {
+        std::regex("\\[warning\\].*"),
+        WARNING_COLOR,
+        true // hasColor
+    });
+    
+    // pound at beginning of line treated as comment until end of line
+    rules.push_back(
+                    {
+        std::regex("(\n|^)#.*"),
+        COMMENT_COLOR,
+        true
+    });
+    
+    // c++ style // comments, anywhere in the line til the end of the line
+    rules.push_back(
+                    {
+        std::regex("\/\/.*"),
+        COMMENT_COLOR,
+        true
+    });
+    
+    // Start line with "> " for echoing output, captures til end of line
+    rules.push_back(
+                    {
+        std::regex("(\n|^)> .*"),
+        COMMENT_COLOR,
+        true
+    });
+}
+
+struct ColorTokenizer
+{
+    RuleSet rules;
+    
+    void matched(Rule& tok, const std::string& str)
+    {
+        if (tok.hasColor)
+        {
+            ImGui::PushStyleColor(ImGuiCol_Text, tok.color);
+        }
+        
+        ImGui::TextUnformatted(str.c_str());
+        
+        if (tok.hasColor)
+        {
+            ImGui::PopStyleColor();
+        }
+        
+        ImGui::SameLine();
+    }
+    
+    void unmatched(const std::string& str)
+    {
+        ImGui::TextUnformatted(str.c_str());
+        ImGui::SameLine();
+    }
+    
+    void checkRules(const std::string& str)
+    {
+        struct SearchParams
+        {
+            std::smatch match;
+            std::size_t searchStartedAt = 0;
+            std::string result;
+            std::string prefix;
+            std::string suffix;
+            bool hasResult = true;
+            
+            std::size_t offsetOfMatch()const
+            {
+                return match.prefix().length() + searchStartedAt;
+            }
+        };
+        
+        std::vector<SearchParams> matches;
+        
+        matches.resize(rules.size());
+        
+        int segmentStart = 0;
+        int priorityMatch = -1;
+        
+        do
+        {
+            int lastPriorityMatch = priorityMatch;
+            priorityMatch = -1;
+            
+            unsigned int startLocation = 0xffffffff;
+            
+            for (int i = 0; i < rules.size(); i++)
+            {
+                SearchParams& match = matches[i];
+                
+                if (!match.hasResult)continue;
+                
+                // update the next search result for the regex we chose, or for any regex whose latest result
+                // is now behind the edge of the string we've consumed
+                if ( (i == lastPriorityMatch) || (match.offsetOfMatch() < segmentStart) || (!segmentStart))
+                {
+                    match.hasResult = std::regex_search( (str.begin() + segmentStart), str.end()
+                                                        , match.match, rules[i].rule);
+                    
+                    match.searchStartedAt = segmentStart;
+                    
+                    if (match.hasResult)
+                    {
+                        //std::cout << "\tpossible match "<<match.match.str()<<std::endl;
+                        match.prefix = match.match.prefix();
+                        match.suffix = match.match.suffix();
+                        match.result = match.match.str();
+                    }
+                }
+                
+                // get the nearest for any
+                if (match.hasResult && match.offsetOfMatch() < startLocation)
+                {
+                    priorityMatch = i;
+                    std::size_t off = match.offsetOfMatch();
+                    startLocation = off;
+                }
+            }
+            
+            if (priorityMatch == -1)
+            {
+                unmatched(str.substr(segmentStart, str.size() - segmentStart));
+                
+                return;
+            }
+            
+            // handle first match
+            
+            const std::string prefix = matches[priorityMatch].prefix;
+            const std::string matchStr = matches[priorityMatch].result;
+            
+            if (prefix.length())
+            {
+                std::size_t offset = segmentStart - matches[priorityMatch].searchStartedAt;
+                if (prefix.length() > offset && prefix.length())
+                {
+                    std::size_t len = prefix.length() - offset;
+                    unmatched(prefix.substr(offset, len));
+                }
+            }
+            
+            matched(rules[priorityMatch], matchStr);
+            
+            segmentStart = matches[priorityMatch].offsetOfMatch() + matchStr.length();
+            
+        }while (true);
+    }
+};
+
+
+struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStream, public ColorTokenizer
 {
     ConsoleBuf            strb;
     std::ostream          consoleStream;
@@ -156,23 +333,26 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
         ClearLog();
         memset(InputBuf, 0, sizeof(InputBuf));
         HistoryPos = -1;
-       
+        
         AutoScroll = true;
         ScrollToBottom = false;
         
         bindMemberCommand("Clear", *this, &IMGUIQuakeConsole::ClearLog, "Clear the console");
+        
+        makeDefaultRules(rules);
     }
     
     ~IMGUIQuakeConsole()
     {
     }
-
+    
+    
     // Portable helpers
     static int   Stricmp(const char* s1, const char* s2)         { int d; while ((d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; } return d; }
     static int   Strnicmp(const char* s1, const char* s2, int n) { int d = 0; while (n > 0 && (d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; n--; } return d; }
     static char* Strdup(const char* s)                           { size_t len = strlen(s) + 1; void* buf = malloc(len); IM_ASSERT(buf); return (char*)memcpy(buf, (const void*)s, len); }
     static void  Strtrim(char* s)                                { char* str_end = s + strlen(s); while (str_end > s && str_end[-1] == ' ') str_end--; *str_end = 0; }
-
+    
     void ClearLog()
     {
         strb.items.clear();
@@ -183,7 +363,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
     {
         ImGui::Checkbox("Auto-scroll", &AutoScroll);
     }
-
+    
     void Draw(const char* title, bool* p_open)
     {
         ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
@@ -192,7 +372,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
             ImGui::End();
             return;
         }
-
+        
         // As a specific feature guaranteed by the library, after calling Begin() the last Item represent the title bar.
         // So e.g. IsItemHovered() will return true when hovering the title bar.
         // Here we create a context menu only available from the title bar.
@@ -202,31 +382,31 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
                 *p_open = false;
             ImGui::EndPopup();
         }
-
-        ImGui::TextWrapped("Enter 'HELP' for help, press TAB to use text completion.");
-
+        
+        ImGui::TextWrapped("Enter 'help' for help, press TAB to use text completion.");
+        
         // TODO: display items starting from the bottom
         
         if (ImGui::SmallButton("Clear")){ ClearLog(); } ImGui::SameLine();
         
         bool copy_to_clipboard = ImGui::SmallButton("Copy");
-
+        
         ImGui::Separator();
-
+        
         // Options menu
         if (ImGui::BeginPopup("Options"))
         {
             optionsMenu();
             ImGui::EndPopup();
         }
-
+        
         // Options, Filter
         if (ImGui::Button("Options"))
             ImGui::OpenPopup("Options");
         ImGui::SameLine();
         Filter.Draw("Filter (\"incl,-excl\") (\"error\")", 180);
         ImGui::Separator();
-
+        
         // Reserve enough left-over height for 1 separator + 1 input text
         const float footer_height_to_reserve = ImGui::GetStyle().ItemSpacing.y + ImGui::GetFrameHeightWithSpacing();
         ImGui::BeginChild("ScrollingRegion", ImVec2(0, -footer_height_to_reserve), false, ImGuiWindowFlags_HorizontalScrollbar);
@@ -235,7 +415,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
             if (ImGui::Selectable("Clear")) ClearLog();
             ImGui::EndPopup();
         }
-
+        
         // Display every line as a separate entry so we can change their color or add custom widgets.
         // If you only want raw text you can use ImGui::TextUnformatted(log.begin(), log.end());
         // NB- if you have thousands of entries this approach may be too inefficient and may require user-side clipping
@@ -267,52 +447,23 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
             const char* item = strb.items[i].c_str();
             if (!Filter.PassFilter(item))
                 continue;
-            
-            // Normally you would store more information in your item than just a string.
-            // (e.g. make Items[] an array of structure, store color/type etc.)
-            ImVec4 color;
-            bool has_color = false;
-            if (strstr(item, "[error]"))
-            {
-                color = ImVec4(2.0f, 0.2f, 0.2f, 1.0f); has_color = true;
-            }
-            else if (strncmp(item, "# ", 2) == 0)
-            {
-                color = ImVec4(1.0f, 0.8f, 0.6f, 1.0f); has_color = true;
-            }
-            if (strstr(item, "[warning]"))
-            {
-                color = ImVec4(1.0f, 1.0f, 0.0f, 1.0f); has_color = true;
-            }
-            if (strstr(item, "> "))
-            {
-                 color = ImVec4(1.0f, 0.8f, 0.6f, 1.0f); has_color = true;
-            }
-            
-            if (has_color)
-            {
-                ImGui::PushStyleColor(ImGuiCol_Text, color);
-            }
-            
-            // *** actually do the text **
-            ImGui::TextUnformatted(item);
-            
-            if (has_color)
-            {
-                ImGui::PopStyleColor();
-            }
+     
+            checkRules(strb.items[i]); // < regex color matching
+
+            ImGui::NewLine(); // we know we're printing a single line - we do sameline() between tokens, then new line before we return
         }
+
         if (copy_to_clipboard)
             ImGui::LogFinish();
-
+        
         if (ScrollToBottom || (AutoScroll && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()))
             ImGui::SetScrollHereY(1.0f);
         ScrollToBottom = false;
-
+        
         ImGui::PopStyleVar();
         ImGui::EndChild();
         ImGui::Separator();
-
+        
         // Command-line
         bool reclaim_focus = false;
         ImGuiInputTextFlags input_text_flags = ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_CallbackCompletion | ImGuiInputTextFlags_CallbackHistory;
@@ -325,15 +476,15 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
             strcpy(s, "");
             reclaim_focus = true;
         }
-
+        
         // Auto-focus on window apparition
         ImGui::SetItemDefaultFocus();
         if (reclaim_focus)
             ImGui::SetKeyboardFocusHere(-1); // Auto focus previous widget
-
+        
         ImGui::End();
     }
-
+    
     void ExecCommand(const char* command_line)
     {
         // Insert into history. First find match and delete it so it can be pushed to the back.
@@ -341,18 +492,18 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
         HistoryPos = -1;
         
         commandExecute(command_line, *this);
-
+        
         // On command input, we scroll to bottom even if AutoScroll==false
         ScrollToBottom = true;
     }
-
+    
     // In C++11 you'd be better off using lambdas for this sort of forwarding callbacks
     static int TextEditCallbackStub(ImGuiInputTextCallbackData* data)
     {
         IMGUIQuakeConsole* console = (IMGUIQuakeConsole*)data->UserData;
         return console->TextEditCallback(data);
     }
-
+    
     int TextEditCallback(ImGuiInputTextCallbackData* data)
     {
         switch (data->EventFlag)
@@ -360,7 +511,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
             case ImGuiInputTextFlags_CallbackCompletion:
             {
                 // Example of TEXT COMPLETION
-
+                
                 // Locate beginning of current word
                 const char* word_end = data->Buf + data->CursorPos;
                 const char* word_start = word_end;
@@ -371,7 +522,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
                         break;
                     word_start--;
                 }
-
+                
                 // Build a list of candidates
                 ImVector<const char*> candidates;
                 //for (int i = 0; i < Commands.Size; i++)
@@ -393,7 +544,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
                         candidates.push_back(cmd);
                     }
                 }
-
+                
                 if (candidates.Size == 0)
                 {
                     // No match
@@ -428,19 +579,19 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
                             break;
                         match_len++;
                     }
-
+                    
                     if (match_len > 0)
                     {
                         data->DeleteChars((int)(word_start - data->Buf), (int)(word_end - word_start));
                         data->InsertChars(data->CursorPos, candidates[0], candidates[0] + match_len);
                     }
-
+                    
                     // List matches
                     (*this)<<"Possible matches:\n";
                     for (int i = 0; i < candidates.Size; i++)
                         (*this)<<"- "<<candidates[i]<<'\n';
                 }
-
+                
                 break;
             }
             case ImGuiInputTextFlags_CallbackHistory:
@@ -460,7 +611,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
                         if (++HistoryPos >= history_buffer.size())
                             HistoryPos = -1;
                 }
-
+                
                 // A better implementation would preserve the data on the current input line along with cursor position.
                 if (prev_history_pos != HistoryPos)
                 {

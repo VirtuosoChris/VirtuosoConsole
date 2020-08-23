@@ -29,7 +29,8 @@ struct ConsoleApplication : public GLFWApplication
 
     ConsoleApplication()
     {
-        console << "Console constructor" << std::endl;
+        console << "-- Message from ConsoleApplication() constructor" << std::endl;
+        console << "[warning] - This thing supports color!\n";
         
         ImGuiContext* ctx = ImGui::CreateContext();
         ImGui::SetCurrentContext(ctx);
