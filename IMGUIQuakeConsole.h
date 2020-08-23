@@ -1,5 +1,5 @@
 //
-//  ConsoleWidget.h
+//  IMGUIQuakeConsole.h
 //
 //  Created by VirtuosoChris on 8/17/20.
 //  Forked from Example Console code in IMGUI samples
@@ -8,9 +8,12 @@
 #ifndef ConsoleWidget_h
 #define ConsoleWidget_h
 
-#include "QuakeStyleConsole.h"
 #include <regex>
 #include <unordered_set>
+
+//dependencies
+#include <imgui.h>
+#include "QuakeStyleConsole.h"
 
 const ImVec4 COMMENT_COLOR = ImVec4(1.0f, 0.8f, 0.6f, 1.0f);
 const ImVec4 ERROR_COLOR = ImVec4(2.0f, 0.2f, 0.2f, 1.0f);
@@ -218,6 +221,7 @@ struct ColorTokenizer
     void unmatched(const std::string& str)
     {
         ImGui::TextUnformatted(str.c_str());
+        //ImGui::TextColored(ImVec4(1,1,1,1), str.c_str());
         ImGui::SameLine();
     }
     
