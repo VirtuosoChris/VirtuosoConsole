@@ -30,6 +30,14 @@
 // regex filters
 // allow processing of rule groups for output - eg. int <identifier> lets us color the identifer separately
 
+const std::string glsl_qualifiers[] =
+{
+"const", "in", "inout", "out", "smooth", "flat", "noperspective", "invariant", "centroid",
+    "coherent", "volatile", "restrict", "readonly", "writeonly", "uniform", "buffer", "shared", "sampler", "patch", "binding", "offset", "highp", "mediump", "lowp", "precise",
+};
+
+const std::string glsl_keywords[] = {"subroutine", "return", "break", "if", "for", "while", "do", "discard", "continue", "struct", "switch"};
+
 const std::string glsl_types[] =
 {
     "void",
@@ -63,8 +71,13 @@ const std::string glsl_types[] =
     "isampler1D","isampler2D", "isampler3D",
     "iimage1D", "iimage2D", "iimage3D",
      "isamplerCube", "iimageCube", "isampler2DRect",
-    
     "iimage2DRect", "isampler1DArray","isampler2DArray", "iimage1DArray", "iimage2DArray","isamplerBuffer", "iimageBuffer", "isampler2DMS", "iimage2DMS", "isampler2DMSArray", "iimage2DMSArray", "isamplerCubeArray", "iimageCubeArray",
+    "atomic_uint", "usampler1D","usampler2D", "usampler3D", "uimage1D", "uimage2D", "uimage3D",
+    "usamplerCube", "uimageCube", "usampler2DRect", "uimage2DRect", "usampler1DArray","usampler2DArray", "uimage1DArray", "uimage2DArray",
+    "usamplerBuffer", "uimageBuffer", "usampler2DMS",
+    "uimage2DMS",
+    "usampler2DMSArray",
+    "uimage2DMSArray", "usamplerCubeArray", "uimageCubeArray"
     
     // left off at atomic uint
 };
