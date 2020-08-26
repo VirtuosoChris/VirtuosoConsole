@@ -19,6 +19,20 @@ const ImVec4 COMMENT_COLOR = ImVec4(1.0f, 0.8f, 0.6f, 1.0f);
 const ImVec4 ERROR_COLOR = ImVec4(2.0f, 0.2f, 0.2f, 1.0f);
 const ImVec4 WARNING_COLOR = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
 
+#define RED_BKGRND_COLOR        0xff0000ff
+#define GREEN_BKGRND_COLOR      0x00ff00ff
+#define YELLOW_BKGRND_COLOR     0xffff00ff
+#define BLUE_BKGRND_COLOR       0x0000ffff
+#define MAGENTA_BKGRND_COLOR    0xff00ffff
+#define CYAN_BKGRND_COLOR       0x00ffffff
+#define WHITE_BKGRND_COLOR      0xffffffff
+
+// Portable helpers
+
+static int   Strnicmp(const char* s1, const char* s2, int n) { int d = 0; while (n > 0 && (d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; n--; } return d; }
+
+static void  Strtrim(char* s)                                { char* str_end = s + strlen(s); while (str_end > s && str_end[-1] == ' ') str_end--; *str_end = 0; }
+
 struct ConsoleBuf : public std::streambuf
 {
     std::vector<std::string> items;
@@ -145,12 +159,18 @@ public:
     }
 };
 
+void DO_NOTHING(){}
 
 struct Rule
 {
     std::regex rule;
     ImVec4 color;
-    bool hasColor;
+    bool hasColor = false;
+    ImU32 backgroundColor = 0;
+    bool hasBackgroundColor = false;
+    bool changeDefaultColors = false;
+    bool showToken = true;
+    std::function<void (void)> action = DO_NOTHING;
 };
 
 typedef std::vector<Rule> RuleSet;
@@ -158,70 +178,252 @@ typedef std::vector<Rule> RuleSet;
 // reference : http://www.cplusplus.com/reference/regex/ECMAScript/
 void makeDefaultRules(RuleSet& rules)
 {
-    rules.push_back(
-                    {
-        std::regex("\\[error\\].*"),
-        ERROR_COLOR,
-        true // hasColor
-    });
     
-    rules.push_back(
-                    {
-        std::regex("\\[warning\\].*"),
-        WARNING_COLOR,
-        true // hasColor
-    });
+    {
+        Rule r;
+        r.rule = std::regex("\\[error\\].*");
+        r.color = ERROR_COLOR;
+        r.hasColor = true;
+        rules.push_back(r);
+    }
     
-    // pound at beginning of line treated as comment until end of line
-    rules.push_back(
-                    {
-        std::regex("(\n|^)#.*"),
-        COMMENT_COLOR,
-        true
-    });
+    {
+        Rule r;
+        r.rule = std::regex("\\[warning\\].*");
+        r.color = WARNING_COLOR;
+        r.hasColor = true;
+        rules.push_back(r);
+    }
     
-    // c++ style // comments, anywhere in the line til the end of the line
-    rules.push_back(
-                    {
-        std::regex("\/\/.*"),
-        COMMENT_COLOR,
-        true
-    });
+    { // pound at beginning of line treated as comment until end of line
+        Rule r;
+        r.rule = std::regex("(\n|^)#.*");
+        r.color = COMMENT_COLOR;
+        r.hasColor = true;
+        rules.push_back(r);
+    }
     
-    // Start line with "> " for echoing output, captures til end of line
-    rules.push_back(
-                    {
-        std::regex("(\n|^)> .*"),
-        COMMENT_COLOR,
-        true
-    });
+    { // c++ style // comments, anywhere in the line til the end of the line
+        Rule r;
+        r.rule = std::regex("\/\/.*");
+        r.color = COMMENT_COLOR;
+        r.hasColor = true;
+        rules.push_back(r);
+    }
+    
+    { // Start line with "> " for echoing output, captures til end of line
+        Rule r;
+        r.rule = std::regex("(\n|^)> .*");
+        r.color = COMMENT_COLOR;
+        r.hasColor = true;
+        rules.push_back(r);
+    }
+    
+    {
+        Rule ansiColorRule;
+        ansiColorRule.rule = std::regex("\033\[[0-9]+(;[0-9]+)*m");
+        ansiColorRule.hasColor = true;
+        ansiColorRule.color = ERROR_COLOR;
+        ansiColorRule.changeDefaultColors = true;
+        ansiColorRule.showToken = false;
+        rules.push_back(ansiColorRule);
+    }
 }
+
+enum AnsiColorCode
+{
+    ANSI_RESET          = 0,
+    ANSI_BRIGHT_TEXT    = 1,
+    
+    ANSI_BLACK          = 30,
+    ANSI_RED            = 31,
+    ANSI_GREEN          = 32,
+    ANSI_YELLOW         = 33,
+    ANSI_BLUE           = 34,
+    ANSI_MAGENTA        = 35,
+    ANSI_CYAN           = 36,
+    ANSI_WHITE          = 37,
+    
+    ANSI_BLACK_BKGRND   = 40,
+    ANSI_RED_BKGRND     = 41,
+    ANSI_GREEN_BKGRND   = 42,
+    ANSI_YELLOW_BKGRND  = 43,
+    ANSI_BLUE_BKGRND    = 44,
+    ANSI_MAGENTA_BKGRND = 45,
+    ANSI_CYAN_BKGRND    = 46,
+    ANSI_WHITE_BKGRND   = 47,
+};
+
+ImU32 getANSIBackgroundColor(AnsiColorCode code)
+{
+    switch (code)
+    {
+        case ANSI_RESET:
+            return 0;
+        case ANSI_BLACK_BKGRND:
+            return 0;
+        case ANSI_RED_BKGRND:
+            return RED_BKGRND_COLOR;
+        case ANSI_GREEN_BKGRND:
+            return GREEN_BKGRND_COLOR;
+        case ANSI_YELLOW_BKGRND:
+            return YELLOW_BKGRND_COLOR;
+        case ANSI_BLUE_BKGRND:
+            return BLUE_BKGRND_COLOR;
+        case ANSI_MAGENTA_BKGRND:
+            return MAGENTA_BKGRND_COLOR;
+        case ANSI_CYAN_BKGRND:
+            return CYAN_BKGRND_COLOR;
+        case ANSI_WHITE_BKGRND:
+            return WHITE_BKGRND_COLOR;
+        default:
+            return 0;
+    }
+}
+
+ImVec4 getAnsiTextColor(AnsiColorCode code)
+{
+    switch (code)
+    {
+        case ANSI_RESET:
+            return ImVec4(0.0,0.0,0.0,1.0);
+        case ANSI_BLACK:
+            return ImVec4(0.0,0.0,0.0,1.0);
+        case ANSI_RED:
+            return ImVec4(0.75,0.0,0.0,1.0);
+        case ANSI_GREEN:
+            return ImVec4(0.0,0.750,0.0,1.0);
+        case ANSI_YELLOW:
+            return ImVec4(0.750,0.750,0.0,1.0);
+        case ANSI_BLUE_BKGRND:
+           return ImVec4(0.0,0.0,0.750,1.0);;
+        case ANSI_MAGENTA_BKGRND:
+           return ImVec4(0.750,0.0,0.750,1.0);;
+        case ANSI_CYAN_BKGRND:
+           return ImVec4(0.0,0.750,0.750,1.0);;
+        case ANSI_WHITE_BKGRND:
+           return ImVec4(0.750,0.750,0.750,1.0);;
+        default:
+            return ImVec4(0.0,0.0,0.0,1.0);
+    }
+}
+
+
+ImVec4 getAnsiTextColorBright(AnsiColorCode code)
+{
+    switch (code)
+    {
+        case ANSI_RESET:
+            return ImVec4(0.0,0.0,0.0,1.0);
+        case ANSI_BLACK:
+            return ImVec4(0.0,0.0,0.0,1.0);
+        case ANSI_RED:
+            return ImVec4(1.0,0.0,0.0,1.0);
+        case ANSI_GREEN:
+            return ImVec4(0.0,1.0,0.0,1.0);
+        case ANSI_YELLOW:
+            return ImVec4(1.0,1.0,0.0,1.0);
+        case ANSI_BLUE_BKGRND:
+           return ImVec4(0.0,0.0,1.0,1.0);;
+        case ANSI_MAGENTA_BKGRND:
+           return ImVec4(1.0,0.0,1.0,1.0);;
+        case ANSI_CYAN_BKGRND:
+           return ImVec4(0.0,1.0,1.0,1.0);;
+        case ANSI_WHITE_BKGRND:
+           return ImVec4(1.0,1.0,1.0,1.0);;
+        default:
+            return ImVec4(0.0,0.0,0.0,1.0);
+    }
+}
+
+const std::string TEXT_COLOR_RESET              =   "\u001b[0m";
+const std::string TEXT_COLOR_BLACK              =   "\u001b[30m";
+const std::string TEXT_COLOR_RED                =   "\u001b[31m";
+const std::string TEXT_COLOR_GREEN              =   "\u001b[32m";
+const std::string TEXT_COLOR_YELLOW             =   "\u001b[33m";
+const std::string TEXT_COLOR_BLUE               =   "\u001b[34m";
+const std::string TEXT_COLOR_MAGENTA            =   "\u001b[35m";
+const std::string TEXT_COLOR_CYAN               =   "\u001b[36m";
+const std::string TEXT_COLOR_WHITE              =   "\u001b[37m";
+const std::string TEXT_COLOR_BLACK_BRIGHT       =   "\u001b[30;1m";
+const std::string TEXT_COLOR_RED_BRIGHT         =   "\u001b[31;1m";
+const std::string TEXT_COLOR_GREEN_BRIGHT       =   "\u001b[32;1m";
+const std::string TEXT_COLOR_YELLOW_BRIGHT      =   "\u001b[33;1m";
+const std::string TEXT_COLOR_BLUE_BRIGHT        =   "\u001b[34;1m";
+const std::string TEXT_COLOR_MAGENTA_BRIGHT     =   "\u001b[35;1m";
+const std::string TEXT_COLOR_CYAN_BRIGHT        =   "\u001b[36;1m";
+const std::string TEXT_COLOR_WHITE_BRIGHT       =   "\u001b[37;1m";
+const std::string TEXT_COLOR_BLACK_BKGRND       =   "\u001b[40m";
+const std::string TEXT_COLOR_RED_BKGRND         =   "\u001b[41m";
+const std::string TEXT_COLOR_GREEN_BKGRND       =   "\u001b[42m";
+const std::string TEXT_COLOR_YELLOW_BKGRND      =   "\u001b[43m";
+const std::string TEXT_COLOR_BLUE_BKGRND        =   "\u001b[44m";
+const std::string TEXT_COLOR_MAGENTA_BKGRND     =   "\u001b[45m";
+const std::string TEXT_COLOR_CYAN_BKGRND        =   "\u001b[46m";
+const std::string TEXT_COLOR_WHITE_BKGRND       =   "\u001b[47m";
 
 struct ColorTokenizer
 {
     RuleSet rules;
     
+    ImVec4 textColor = ImVec4(1.0,1.0,1.0,1.0);
+    ImU32 backgroundColor = 0;
+    bool hasBackgroundColor = false;
+    
+    bool processANSIColorCode(int code)
+    {
+        switch (code)
+        {
+            case 0:
+            
+            default:
+                return false;
+                break;
+        }
+    }
+    
     void matched(Rule& tok, const std::string& str)
     {
-        if (tok.hasColor)
+        if (tok.showToken)
         {
-            ImGui::PushStyleColor(ImGuiCol_Text, tok.color);
+            if (tok.hasColor)
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, tok.color);
+            }
+            
+            ImGui::TextUnformatted(str.c_str());
+            
+            if (tok.hasColor)
+            {
+                ImGui::PopStyleColor();
+            }
+            
+            ImGui::SameLine();
         }
         
-        ImGui::TextUnformatted(str.c_str());
-        
-        if (tok.hasColor)
+        if (tok.changeDefaultColors)
         {
-            ImGui::PopStyleColor();
+            if (tok.hasColor) textColor =  tok.color;
+            if (tok.hasBackgroundColor)
+            {
+                backgroundColor = tok.backgroundColor;
+            }
         }
         
-        ImGui::SameLine();
+        tok.action();
     }
     
     void unmatched(const std::string& str)
     {
-        ImGui::TextUnformatted(str.c_str());
-        //ImGui::TextColored(ImVec4(1,1,1,1), str.c_str());
+        if (hasBackgroundColor)
+        {
+            ImVec2 textSize =  ImGui::CalcTextSize(str.c_str());
+            ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
+            ImVec2 sum = ImVec2(textSize[0] + cursorScreenPos[0], textSize[1] + cursorScreenPos[1]);
+            ImGui::GetWindowDrawList()->AddRectFilled(cursorScreenPos, sum, backgroundColor);
+        }
+        
+        ImGui::TextColored(textColor, str.c_str());
         ImGui::SameLine();
     }
     
@@ -350,12 +552,6 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
     {
     }
     
-    
-    // Portable helpers
-    static int   Stricmp(const char* s1, const char* s2)         { int d; while ((d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; } return d; }
-    static int   Strnicmp(const char* s1, const char* s2, int n) { int d = 0; while (n > 0 && (d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; n--; } return d; }
-    static char* Strdup(const char* s)                           { size_t len = strlen(s) + 1; void* buf = malloc(len); IM_ASSERT(buf); return (char*)memcpy(buf, (const void*)s, len); }
-    static void  Strtrim(char* s)                                { char* str_end = s + strlen(s); while (str_end > s && str_end[-1] == ' ') str_end--; *str_end = 0; }
     
     void ClearLog()
     {
