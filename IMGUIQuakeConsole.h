@@ -10,6 +10,7 @@
 
 #include <regex>
 #include <unordered_set>
+#include <algorithm>
 
 //dependencies
 #include <imgui.h>
@@ -19,19 +20,20 @@ const ImVec4 COMMENT_COLOR = ImVec4(1.0f, 0.8f, 0.6f, 1.0f);
 const ImVec4 ERROR_COLOR = ImVec4(2.0f, 0.2f, 0.2f, 1.0f);
 const ImVec4 WARNING_COLOR = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
 
-#define RED_BKGRND_COLOR        0xff0000ff
-#define GREEN_BKGRND_COLOR      0x00ff00ff
-#define YELLOW_BKGRND_COLOR     0xffff00ff
-#define BLUE_BKGRND_COLOR       0x0000ffff
-#define MAGENTA_BKGRND_COLOR    0xff00ffff
-#define CYAN_BKGRND_COLOR       0x00ffffff
-#define WHITE_BKGRND_COLOR      0xffffffff
+#define RED_BKGRND_COLOR        IM_COL32(255,0,0,255);
+#define GREEN_BKGRND_COLOR      IM_COL32(0,255,0,255);
+#define YELLOW_BKGRND_COLOR     IM_COL32(255,255,0,255);
+#define BLUE_BKGRND_COLOR       IM_COL32(0,0,255,255);
+#define MAGENTA_BKGRND_COLOR    IM_COL32(255,0,255,255);
+#define CYAN_BKGRND_COLOR       IM_COL32(0,255,255,255);
+#define WHITE_BKGRND_COLOR      IM_COL32(255,255,255,255);
 
 // Portable helpers
 
 static int   Strnicmp(const char* s1, const char* s2, int n) { int d = 0; while (n > 0 && (d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; n--; } return d; }
 
 static void  Strtrim(char* s)                                { char* str_end = s + strlen(s); while (str_end > s && str_end[-1] == ' ') str_end--; *str_end = 0; }
+
 
 struct ConsoleBuf : public std::streambuf
 {
@@ -159,7 +161,8 @@ public:
     }
 };
 
-void DO_NOTHING(){}
+struct ColorTokenizer;
+void DO_NOTHING(ColorTokenizer& tok, const std::string& str){}
 
 struct Rule
 {
@@ -170,10 +173,40 @@ struct Rule
     bool hasBackgroundColor = false;
     bool changeDefaultColors = false;
     bool showToken = true;
-    std::function<void (void)> action = DO_NOTHING;
+    std::function<void (ColorTokenizer&, const std::string&)> action = DO_NOTHING;
 };
 
 typedef std::vector<Rule> RuleSet;
+
+
+enum AnsiColorCode
+{
+    ANSI_RESET          = 0,
+    ANSI_BRIGHT_TEXT    = 1,
+    
+    ANSI_BLACK          = 30,
+    ANSI_RED            = 31,
+    ANSI_GREEN          = 32,
+    ANSI_YELLOW         = 33,
+    ANSI_BLUE           = 34,
+    ANSI_MAGENTA        = 35,
+    ANSI_CYAN           = 36,
+    ANSI_WHITE          = 37,
+    
+    ANSI_BLACK_BKGRND   = 40,
+    ANSI_RED_BKGRND     = 41,
+    ANSI_GREEN_BKGRND   = 42,
+    ANSI_YELLOW_BKGRND  = 43,
+    ANSI_BLUE_BKGRND    = 44,
+    ANSI_MAGENTA_BKGRND = 45,
+    ANSI_CYAN_BKGRND    = 46,
+    ANSI_WHITE_BKGRND   = 47,
+};
+
+
+struct ColorTokenizer;
+void processANSICode(ColorTokenizer& tok, int code, bool& brightText, AnsiColorCode& textCode);
+void handleANSIString(ColorTokenizer& tok, const std::string& str);
 
 // reference : http://www.cplusplus.com/reference/regex/ECMAScript/
 void makeDefaultRules(RuleSet& rules)
@@ -222,37 +255,12 @@ void makeDefaultRules(RuleSet& rules)
     {
         Rule ansiColorRule;
         ansiColorRule.rule = std::regex("\033\[[0-9]+(;[0-9]+)*m");
-        ansiColorRule.hasColor = true;
-        ansiColorRule.color = ERROR_COLOR;
-        ansiColorRule.changeDefaultColors = true;
         ansiColorRule.showToken = false;
+        ansiColorRule.action = handleANSIString;
         rules.push_back(ansiColorRule);
     }
 }
 
-enum AnsiColorCode
-{
-    ANSI_RESET          = 0,
-    ANSI_BRIGHT_TEXT    = 1,
-    
-    ANSI_BLACK          = 30,
-    ANSI_RED            = 31,
-    ANSI_GREEN          = 32,
-    ANSI_YELLOW         = 33,
-    ANSI_BLUE           = 34,
-    ANSI_MAGENTA        = 35,
-    ANSI_CYAN           = 36,
-    ANSI_WHITE          = 37,
-    
-    ANSI_BLACK_BKGRND   = 40,
-    ANSI_RED_BKGRND     = 41,
-    ANSI_GREEN_BKGRND   = 42,
-    ANSI_YELLOW_BKGRND  = 43,
-    ANSI_BLUE_BKGRND    = 44,
-    ANSI_MAGENTA_BKGRND = 45,
-    ANSI_CYAN_BKGRND    = 46,
-    ANSI_WHITE_BKGRND   = 47,
-};
 
 ImU32 getANSIBackgroundColor(AnsiColorCode code)
 {
@@ -286,7 +294,7 @@ ImVec4 getAnsiTextColor(AnsiColorCode code)
     switch (code)
     {
         case ANSI_RESET:
-            return ImVec4(0.0,0.0,0.0,1.0);
+            return ImVec4(0.750,0.750,0.750,1.0);
         case ANSI_BLACK:
             return ImVec4(0.0,0.0,0.0,1.0);
         case ANSI_RED:
@@ -295,13 +303,13 @@ ImVec4 getAnsiTextColor(AnsiColorCode code)
             return ImVec4(0.0,0.750,0.0,1.0);
         case ANSI_YELLOW:
             return ImVec4(0.750,0.750,0.0,1.0);
-        case ANSI_BLUE_BKGRND:
+        case ANSI_BLUE:
            return ImVec4(0.0,0.0,0.750,1.0);;
-        case ANSI_MAGENTA_BKGRND:
+        case ANSI_MAGENTA:
            return ImVec4(0.750,0.0,0.750,1.0);;
-        case ANSI_CYAN_BKGRND:
+        case ANSI_CYAN:
            return ImVec4(0.0,0.750,0.750,1.0);;
-        case ANSI_WHITE_BKGRND:
+        case ANSI_WHITE:
            return ImVec4(0.750,0.750,0.750,1.0);;
         default:
             return ImVec4(0.0,0.0,0.0,1.0);
@@ -314,7 +322,7 @@ ImVec4 getAnsiTextColorBright(AnsiColorCode code)
     switch (code)
     {
         case ANSI_RESET:
-            return ImVec4(0.0,0.0,0.0,1.0);
+            return ImVec4(1.0,1.0,1.0,1.0);
         case ANSI_BLACK:
             return ImVec4(0.0,0.0,0.0,1.0);
         case ANSI_RED:
@@ -323,13 +331,13 @@ ImVec4 getAnsiTextColorBright(AnsiColorCode code)
             return ImVec4(0.0,1.0,0.0,1.0);
         case ANSI_YELLOW:
             return ImVec4(1.0,1.0,0.0,1.0);
-        case ANSI_BLUE_BKGRND:
+        case ANSI_BLUE:
            return ImVec4(0.0,0.0,1.0,1.0);;
-        case ANSI_MAGENTA_BKGRND:
+        case ANSI_MAGENTA:
            return ImVec4(1.0,0.0,1.0,1.0);;
-        case ANSI_CYAN_BKGRND:
+        case ANSI_CYAN:
            return ImVec4(0.0,1.0,1.0,1.0);;
-        case ANSI_WHITE_BKGRND:
+        case ANSI_WHITE:
            return ImVec4(1.0,1.0,1.0,1.0);;
         default:
             return ImVec4(0.0,0.0,0.0,1.0);
@@ -370,18 +378,6 @@ struct ColorTokenizer
     ImU32 backgroundColor = 0;
     bool hasBackgroundColor = false;
     
-    bool processANSIColorCode(int code)
-    {
-        switch (code)
-        {
-            case 0:
-            
-            default:
-                return false;
-                break;
-        }
-    }
-    
     void matched(Rule& tok, const std::string& str)
     {
         if (tok.showToken)
@@ -410,7 +406,7 @@ struct ColorTokenizer
             }
         }
         
-        tok.action();
+        tok.action(*this, str);
     }
     
     void unmatched(const std::string& str)
@@ -520,6 +516,84 @@ struct ColorTokenizer
         }while (true);
     }
 };
+
+
+/// parse the ansi color code and change state
+void handleANSIString(ColorTokenizer& tok, const std::string& str)
+{
+    bool brightText = false;
+    AnsiColorCode textCode = (AnsiColorCode)0;
+    std::smatch match;
+
+    std::string sstring = str;
+
+    static std::regex rx("[[:digit:]]+");
+
+    while (std::regex_search(sstring, match, rx))
+    {
+       std::stringstream sstr;
+
+       sstr << match.str();
+       int result;
+       sstr>>result;
+
+       sstring = match.suffix();
+
+       processANSICode(tok, result, brightText, textCode);
+    }
+}
+
+
+/// change state based on an integer code in the ansi-code input stream
+void processANSICode(ColorTokenizer& tok, int code, bool& brightText, AnsiColorCode& textCode)
+{
+    switch (code)
+    {
+        case ANSI_RESET:
+            tok.hasBackgroundColor = false;
+            break;
+        case ANSI_BRIGHT_TEXT:
+            brightText = true;
+            if (textCode)
+            {
+                tok.textColor = getAnsiTextColorBright(textCode);
+            }
+            break;
+        case ANSI_BLACK:
+        case ANSI_RED:
+        case ANSI_GREEN:
+        case ANSI_YELLOW:
+        case ANSI_BLUE:
+        case ANSI_MAGENTA:
+        case ANSI_CYAN:
+        case ANSI_WHITE:
+            textCode = (AnsiColorCode)code;
+            
+            if (brightText)
+            {
+                tok.textColor = getAnsiTextColorBright((AnsiColorCode)code);
+            }
+            else
+            {
+                tok.textColor = getAnsiTextColor((AnsiColorCode)code);
+            }
+            break;
+        case ANSI_BLACK_BKGRND:
+        case ANSI_RED_BKGRND:
+        case ANSI_GREEN_BKGRND:
+        case ANSI_YELLOW_BKGRND:
+        case ANSI_BLUE_BKGRND:
+        case ANSI_MAGENTA_BKGRND:
+        case ANSI_CYAN_BKGRND:
+        case ANSI_WHITE_BKGRND:
+            tok.hasBackgroundColor = true;
+            tok.backgroundColor = getANSIBackgroundColor((AnsiColorCode)code);
+            break;
+        default:
+            std::cerr<<"unknown ansi code "<<code<<" in output\n";
+            return;
+    }
+}
 
 
 struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStream, public ColorTokenizer
