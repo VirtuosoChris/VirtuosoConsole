@@ -376,7 +376,16 @@ struct ColorTokenizer
     
     ImVec4 textColor = ImVec4(1.0,1.0,1.0,1.0);
     ImU32 backgroundColor = 0;
+    AnsiColorCode lastColorToken = ANSI_WHITE;
     bool hasBackgroundColor = false;
+    
+    void defaultFormatting() // call at beginning of output stream
+    {
+        textColor = ImVec4(1.0,1.0,1.0,1.0);
+        backgroundColor = 0;
+        lastColorToken = ANSI_WHITE;
+        hasBackgroundColor = false;
+    }
     
     void matched(Rule& tok, const std::string& str)
     {
@@ -522,7 +531,7 @@ struct ColorTokenizer
 void handleANSIString(ColorTokenizer& tok, const std::string& str)
 {
     bool brightText = false;
-    AnsiColorCode textCode = (AnsiColorCode)0;
+    AnsiColorCode& textCode = tok.lastColorToken;//(AnsiColorCode)0;
     std::smatch match;
 
     std::string sstring = str;
@@ -605,6 +614,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
     ImGuiTextFilter       Filter;
     bool                  AutoScroll;
     bool                  ScrollToBottom;
+    bool                  formattedText = true;
     
     IMGUIQuakeConsole() : consoleStream(&strb)
     {
@@ -618,6 +628,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
         ScrollToBottom = false;
         
         bindMemberCommand("Clear", *this, &IMGUIQuakeConsole::ClearLog, "Clear the console");
+        bindCVar("formattedText", formattedText, "");
         
         makeDefaultRules(rules);
     }
@@ -716,14 +727,22 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
         if (copy_to_clipboard)
             ImGui::LogToClipboard();
+        
+        defaultFormatting(); // reset formatting at beginning of output
         for (int i = 0; i < strb.items.size(); i++)
         {
             const char* item = strb.items[i].c_str();
             if (!Filter.PassFilter(item))
                 continue;
      
-            checkRules(strb.items[i]); // < regex color matching
-
+            if (formattedText)
+            {
+                checkRules(strb.items[i]); // < regex color matching
+            }
+            else
+            {
+                unmatched(strb.items[i]);
+            }
             ImGui::NewLine(); // we know we're printing a single line - we do sameline() between tokens, then new line before we return
         }
 

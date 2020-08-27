@@ -33,6 +33,27 @@ struct GLFWApplication
         return window;
     }
     
+    struct FpsCounter
+    {
+        double intervalStart = 0;
+        std::size_t frames = 0;
+        double intervalLength = .25f; // in seconds
+        double fps = 0.0;
+        
+        void endFrame(double newTime)
+        {
+            frames++;
+            if (newTime - intervalStart > intervalLength)
+            {
+                fps = frames / intervalLength;
+                intervalStart = newTime;
+                frames = 0;
+            }
+        }
+    };
+                
+    FpsCounter fpsCounter;
+    
     GLFWApplication()
     {
         auto monitor = glfwGetPrimaryMonitor();
@@ -146,6 +167,8 @@ struct GLFWApplication
 
             glfwSwapBuffers(window);
 
+            fpsCounter.endFrame(getTime());
+            
             glfwPollEvents();
         }
     }

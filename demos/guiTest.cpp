@@ -62,6 +62,8 @@ struct ConsoleApplication : public GLFWApplication
         console << "\u001b[40;1m A \u001b[41;1m B \u001b[42;1m C \u001b[43;1m D \u001b[0m";
         console << "\u001b[44;1m A \u001b[45;1m B \u001b[46;1m C \u001b[47;1m D \u001b[0m";
 
+        console << TEXT_COLOR_RED << "\nRED TEXT\n";
+        console << TEXT_COLOR_RED_BRIGHT << " BRIGHT RED TEXT " << std::endl;
         
         ImGuiContext* ctx = ImGui::CreateContext();
         ImGui::SetCurrentContext(ctx);
@@ -75,6 +77,11 @@ struct ConsoleApplication : public GLFWApplication
     
     void render()
     {
+        if (!fpsCounter.frames)
+        {
+            console << " FPS : " << fpsCounter.fps <<'\n';
+        }
+        
         static ImguiRenderState imguiRenderer;
         ImGui_ImplGlfw_NewFrame();
 
