@@ -46,7 +46,6 @@ extern const std::size_t glsl_functions_length;
 struct ConsoleApplication : public GLFWApplication
 {
     IMGUIQuakeConsole console;
-    RuleSet glslRules;
 
     ConsoleApplication()
     {
@@ -71,8 +70,6 @@ struct ConsoleApplication : public GLFWApplication
         
         console.bindMemberCommand("glslTest", *this, &ConsoleApplication::doGLSLTest);
         
-        extraHighlightingRules();
-        makeGLSLRules();
     }
     
     void render()
@@ -118,55 +115,10 @@ struct ConsoleApplication : public GLFWApplication
     
     void extraHighlightingRules()
     {
-        Rule r;
+        /*Rule r;
         r.rule = std::regex("<glsl>");
         r.hasColor = true;
-        r.color =  ImVec4(1.0,0.0,1.0,1.0);
-    }
-    
-    void makeGLSLRules()
-    {
-        {
-            Rule r;
-            r.rule = std::regex("<glsl>");
-            r.hasColor = true;
-            r.color =  ImVec4(1.0,0.0,1.0,1.0);
-        }
-        
-        {
-            Rule r;
-            r.rule = std::regex(makeKeywordsRegexStr(glsl_types, glsl_types_length));
-            r.hasColor = true;
-            r.color =  ImVec4(0.0,0.0,1.0,1.0);
-        }
-        
-        {
-            Rule r;
-            r.rule = std::regex(makeKeywordsRegexStr(glsl_keywords, glsl_keywords_length));
-            r.hasColor = true;
-            r.color =  ImVec4(0.0,0.0,1.0,1.0);
-        }
-        
-        {
-            Rule r;
-            r.rule =  std::regex(makeKeywordsRegexStr(glsl_functions, glsl_functions_length));
-            r.hasColor = true;
-            r.color =  ImVec4(0.0,0.0,1.0,1.0);
-        }
-        
-        {
-            Rule r;
-            r.rule = std::regex(makeKeywordsRegexStr(glsl_qualifiers, glsl_qualifiers_length));
-            r.hasColor = true;
-            r.color =  ImVec4(0.0,0.0,1.0,1.0);
-        }
-        
-        {
-            Rule r;
-            r.rule = std::regex("</glsl>");
-            r.hasColor = true;
-            r.color =  ImVec4(1.0,0.0,1.0,1.0);
-        }
+        r.color =  ImVec4(1.0,0.0,1.0,1.0);*/
     }
     
     void doGLSLTest()

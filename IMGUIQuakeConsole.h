@@ -28,6 +28,63 @@ const ImVec4 WARNING_COLOR = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
 #define CYAN_BKGRND_COLOR       IM_COL32(0,255,255,255);
 #define WHITE_BKGRND_COLOR      IM_COL32(255,255,255,255);
 
+const std::string TEXT_COLOR_RESET              =   "\u001b[0m";
+const std::string TEXT_COLOR_BLACK              =   "\u001b[30m";
+const std::string TEXT_COLOR_RED                =   "\u001b[31m";
+const std::string TEXT_COLOR_GREEN              =   "\u001b[32m";
+const std::string TEXT_COLOR_YELLOW             =   "\u001b[33m";
+const std::string TEXT_COLOR_BLUE               =   "\u001b[34m";
+const std::string TEXT_COLOR_MAGENTA            =   "\u001b[35m";
+const std::string TEXT_COLOR_CYAN               =   "\u001b[36m";
+const std::string TEXT_COLOR_WHITE              =   "\u001b[37m";
+const std::string TEXT_COLOR_BLACK_BRIGHT       =   "\u001b[30;1m";
+const std::string TEXT_COLOR_RED_BRIGHT         =   "\u001b[31;1m";
+const std::string TEXT_COLOR_GREEN_BRIGHT       =   "\u001b[32;1m";
+const std::string TEXT_COLOR_YELLOW_BRIGHT      =   "\u001b[33;1m";
+const std::string TEXT_COLOR_BLUE_BRIGHT        =   "\u001b[34;1m";
+const std::string TEXT_COLOR_MAGENTA_BRIGHT     =   "\u001b[35;1m";
+const std::string TEXT_COLOR_CYAN_BRIGHT        =   "\u001b[36;1m";
+const std::string TEXT_COLOR_WHITE_BRIGHT       =   "\u001b[37;1m";
+const std::string TEXT_COLOR_BLACK_BKGRND       =   "\u001b[40m";
+const std::string TEXT_COLOR_RED_BKGRND         =   "\u001b[41m";
+const std::string TEXT_COLOR_GREEN_BKGRND       =   "\u001b[42m";
+const std::string TEXT_COLOR_YELLOW_BKGRND      =   "\u001b[43m";
+const std::string TEXT_COLOR_BLUE_BKGRND        =   "\u001b[44m";
+const std::string TEXT_COLOR_MAGENTA_BKGRND     =   "\u001b[45m";
+const std::string TEXT_COLOR_CYAN_BKGRND        =   "\u001b[46m";
+const std::string TEXT_COLOR_WHITE_BKGRND       =   "\u001b[47m";
+
+enum AnsiColorCode
+{
+    ANSI_RESET          = 0,
+    ANSI_BRIGHT_TEXT    = 1,
+    
+    ANSI_BLACK          = 30,
+    ANSI_RED            = 31,
+    ANSI_GREEN          = 32,
+    ANSI_YELLOW         = 33,
+    ANSI_BLUE           = 34,
+    ANSI_MAGENTA        = 35,
+    ANSI_CYAN           = 36,
+    ANSI_WHITE          = 37,
+    
+    ANSI_BLACK_BKGRND   = 40,
+    ANSI_RED_BKGRND     = 41,
+    ANSI_GREEN_BKGRND   = 42,
+    ANSI_YELLOW_BKGRND  = 43,
+    ANSI_BLUE_BKGRND    = 44,
+    ANSI_MAGENTA_BKGRND = 45,
+    ANSI_CYAN_BKGRND    = 46,
+    ANSI_WHITE_BKGRND   = 47,
+};
+
+
+ImU32 getANSIBackgroundColor(AnsiColorCode code);
+ImVec4 getAnsiTextColor(AnsiColorCode code);
+ImVec4 getAnsiTextColorBright(AnsiColorCode code);
+
+
+
 // Portable helpers
 
 static int   Strnicmp(const char* s1, const char* s2, int n) { int d = 0; while (n > 0 && (d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; n--; } return d; }
@@ -37,8 +94,62 @@ static void  Strtrim(char* s)                                { char* str_end = s
 
 struct ConsoleBuf : public std::streambuf
 {
-    std::vector<std::string> items;
+    // current formatting
+    ImVec4      textColor           = ImVec4(1.0,1.0,1.0,1.0);
+    ImU32       backgroundColor     = 0;
+    bool        hasBackgroundColor  = false;
+    
+    struct TextSequence
+    {
+        ImVec4      textColor           = ImVec4(1.0,1.0,1.0,1.0);
+        ImU32       backgroundColor     = 0;
+        std::string text                = "";
+        bool        hasBackgroundColor  = false;
+    };
+    
+    struct Line
+    {
+        std::vector<TextSequence> sequences;
+        
+        TextSequence& curSequence() {
+            std::cout << "getting seq w seeq size " << sequences.size() <<std::endl;
+            return sequences[sequences.size()-1];
+            
+        }
+        const TextSequence& curSequence() const {
+            std::cout << "getting seq w seeq size " << sequences.size() <<std::endl;
+            return sequences[sequences.size()-1];}
+    };
+
+    std::vector<Line> lines;
     bool parsingANSICode = false;
+    bool listeningDigits = false;
+    std::stringstream numParse;
+    
+    
+    void clear()
+    {
+        lines.clear();
+        lines.push_back(Line());
+        currentLine().sequences.push_back(TextSequence()); // start a new run of chars with default formatting
+    }
+    
+    Line& currentLine()
+    {
+        std::cout << "getting line w lines size " << lines.size() <<std::endl;
+        return lines[lines.size()-1];
+    }
+    
+    const Line& currentLine() const
+    {
+        std::cout << "getting line w lines size " << lines.size() <<std::endl;
+        return lines[lines.size()-1];
+    }
+    
+    std::string& curStr()
+    {
+        return currentLine().curSequence().text;
+    }
     
     struct membuf: std::streambuf
     {
@@ -50,47 +161,152 @@ struct ConsoleBuf : public std::streambuf
     
     ConsoleBuf()
     {
-        items.push_back("");
+        lines.push_back(Line());
+        currentLine().sequences.push_back(TextSequence()); // start a new run of chars with default formatting
     }
     
-    std::string& curStr()
-    {
-        int idx = items.size()-1;
-        return items[idx];
-    }
-    
+    // "\u001b[33;1m";
     int overflow(int c)
     {
         if (c != EOF)
         {
-            switch (c)
+            if (parsingANSICode)
             {
-                case '\n':
+                bool error = false;
+                
+                if (std::isdigit((char)c) && listeningDigits)
                 {
-                    items.push_back("");
-                    break;
+                    numParse << (char)c;
                 }
-                case 'm':
+                else
                 {
-                    curStr() +=(char)c;
-                    if (parsingANSICode)
+                    switch (c)
                     {
-                        items.push_back("");
-                        parsingANSICode = false;
+                        case 'm': // end of ansi code; apply color formatting to new sequence
+                        {
+                            parsingANSICode = false;
+                            
+                            int x;
+                            if (numParse >> x)
+                            {
+                                //
+                            }
+                            
+                            currentLine().sequences.push_back({textColor, backgroundColor, "", hasBackgroundColor});
+                            
+                            break;
+                        }
+                        case '[':
+                        {
+                            listeningDigits = true;
+                            numParse.clear();
+                            break;
+                        }
+                        case ';':
+                        {
+                            int x;
+                            numParse >> x;
+                        }
+                        default:
+                        {
+                            error = true;
+                            break;
+                        }
                     }
                     
-                    break;
-                }
-                default:
-                {
-                    curStr() +=(char)c;
+                    if (error)
+                    {
+                        numParse.clear();
+                        listeningDigits = false;
+                        parsingANSICode = false;
+                        
+                        std::cerr <<c;
+                        //curStr() += (char)c;
+                    }
                 }
             }
+            else
+            {
+                switch (c)
+                {
+                    case '\u001b':
+                    {
+                        parsingANSICode = true;
+                        numParse.clear();
+                        break;
+                    }
+                    case '\n':
+                    {
+                        //currentline add \n
+                        lines.push_back(Line());
+                        currentLine().sequences.push_back(TextSequence());
+                        break;
+                    }
+                    default:
+                    {
+                        //std::cerr <<c;
+                        curStr() +=(char)c;
+                    }
+                }
+            }
+            
+        
         }
         return c;
     }
+    
+    /// change state based on an integer code in the ansi-code input stream
+    void processANSICode(int code, bool& brightText, AnsiColorCode& textCode)
+    {
+        switch (code)
+        {
+            case ANSI_RESET:
+                hasBackgroundColor = false;
+                break;
+            case ANSI_BRIGHT_TEXT:
+                brightText = true;
+                if (textCode)
+                {
+                    textColor = getAnsiTextColorBright(textCode);
+                }
+                break;
+            case ANSI_BLACK:
+            case ANSI_RED:
+            case ANSI_GREEN:
+            case ANSI_YELLOW:
+            case ANSI_BLUE:
+            case ANSI_MAGENTA:
+            case ANSI_CYAN:
+            case ANSI_WHITE:
+                textCode = (AnsiColorCode)code;
+                
+                if (brightText)
+                {
+                    textColor = getAnsiTextColorBright((AnsiColorCode)code);
+                }
+                else
+                {
+                    textColor = getAnsiTextColor((AnsiColorCode)code);
+                }
+                break;
+            case ANSI_BLACK_BKGRND:
+            case ANSI_RED_BKGRND:
+            case ANSI_GREEN_BKGRND:
+            case ANSI_YELLOW_BKGRND:
+            case ANSI_BLUE_BKGRND:
+            case ANSI_MAGENTA_BKGRND:
+            case ANSI_CYAN_BKGRND:
+            case ANSI_WHITE_BKGRND:
+                hasBackgroundColor = true;
+                backgroundColor = getANSIBackgroundColor((AnsiColorCode)code);
+                break;
+            default:
+                std::cerr<<"unknown ansi code "<<code<<" in output\n";
+                return;
+        }
+    }
 
-    std::streamsize xsputn ( const char * s, std::streamsize n )
+    /*std::streamsize xsputn ( const char * s, std::streamsize n )
     {
         membuf mb(s, s + n);
         
@@ -109,7 +325,7 @@ struct ConsoleBuf : public std::streambuf
         }
         
         return n;
-    }
+    }*/
 };
 
 
@@ -161,451 +377,8 @@ public:
     }
 };
 
-struct ColorTokenizer;
-void DO_NOTHING(ColorTokenizer& tok, const std::string& str){}
 
-struct Rule
-{
-    std::regex rule;
-    ImVec4 color;
-    bool hasColor = false;
-    ImU32 backgroundColor = 0;
-    bool hasBackgroundColor = false;
-    bool changeDefaultColors = false;
-    bool showToken = true;
-    std::function<void (ColorTokenizer&, const std::string&)> action = DO_NOTHING;
-};
-
-typedef std::vector<Rule> RuleSet;
-
-
-enum AnsiColorCode
-{
-    ANSI_RESET          = 0,
-    ANSI_BRIGHT_TEXT    = 1,
-    
-    ANSI_BLACK          = 30,
-    ANSI_RED            = 31,
-    ANSI_GREEN          = 32,
-    ANSI_YELLOW         = 33,
-    ANSI_BLUE           = 34,
-    ANSI_MAGENTA        = 35,
-    ANSI_CYAN           = 36,
-    ANSI_WHITE          = 37,
-    
-    ANSI_BLACK_BKGRND   = 40,
-    ANSI_RED_BKGRND     = 41,
-    ANSI_GREEN_BKGRND   = 42,
-    ANSI_YELLOW_BKGRND  = 43,
-    ANSI_BLUE_BKGRND    = 44,
-    ANSI_MAGENTA_BKGRND = 45,
-    ANSI_CYAN_BKGRND    = 46,
-    ANSI_WHITE_BKGRND   = 47,
-};
-
-
-struct ColorTokenizer;
-void processANSICode(ColorTokenizer& tok, int code, bool& brightText, AnsiColorCode& textCode);
-void handleANSIString(ColorTokenizer& tok, const std::string& str);
-
-// reference : http://www.cplusplus.com/reference/regex/ECMAScript/
-void makeDefaultRules(RuleSet& rules)
-{
-    
-    {
-        Rule r;
-        r.rule = std::regex("\\[error\\].*");
-        r.color = ERROR_COLOR;
-        r.hasColor = true;
-        rules.push_back(r);
-    }
-    
-    {
-        Rule r;
-        r.rule = std::regex("\\[warning\\].*");
-        r.color = WARNING_COLOR;
-        r.hasColor = true;
-        rules.push_back(r);
-    }
-    
-    { // pound at beginning of line treated as comment until end of line
-        Rule r;
-        r.rule = std::regex("(\n|^)#.*");
-        r.color = COMMENT_COLOR;
-        r.hasColor = true;
-        rules.push_back(r);
-    }
-    
-    { // c++ style // comments, anywhere in the line til the end of the line
-        Rule r;
-        r.rule = std::regex("\/\/.*");
-        r.color = COMMENT_COLOR;
-        r.hasColor = true;
-        rules.push_back(r);
-    }
-    
-    { // Start line with "> " for echoing output, captures til end of line
-        Rule r;
-        r.rule = std::regex("(\n|^)> .*");
-        r.color = COMMENT_COLOR;
-        r.hasColor = true;
-        rules.push_back(r);
-    }
-    
-    {
-        Rule ansiColorRule;
-        ansiColorRule.rule = std::regex("\033\[[0-9]+(;[0-9]+)*m");
-        ansiColorRule.showToken = false;
-        ansiColorRule.action = handleANSIString;
-        rules.push_back(ansiColorRule);
-    }
-}
-
-
-ImU32 getANSIBackgroundColor(AnsiColorCode code)
-{
-    switch (code)
-    {
-        case ANSI_RESET:
-            return 0;
-        case ANSI_BLACK_BKGRND:
-            return 0;
-        case ANSI_RED_BKGRND:
-            return RED_BKGRND_COLOR;
-        case ANSI_GREEN_BKGRND:
-            return GREEN_BKGRND_COLOR;
-        case ANSI_YELLOW_BKGRND:
-            return YELLOW_BKGRND_COLOR;
-        case ANSI_BLUE_BKGRND:
-            return BLUE_BKGRND_COLOR;
-        case ANSI_MAGENTA_BKGRND:
-            return MAGENTA_BKGRND_COLOR;
-        case ANSI_CYAN_BKGRND:
-            return CYAN_BKGRND_COLOR;
-        case ANSI_WHITE_BKGRND:
-            return WHITE_BKGRND_COLOR;
-        default:
-            return 0;
-    }
-}
-
-ImVec4 getAnsiTextColor(AnsiColorCode code)
-{
-    switch (code)
-    {
-        case ANSI_RESET:
-            return ImVec4(0.750,0.750,0.750,1.0);
-        case ANSI_BLACK:
-            return ImVec4(0.0,0.0,0.0,1.0);
-        case ANSI_RED:
-            return ImVec4(0.75,0.0,0.0,1.0);
-        case ANSI_GREEN:
-            return ImVec4(0.0,0.750,0.0,1.0);
-        case ANSI_YELLOW:
-            return ImVec4(0.750,0.750,0.0,1.0);
-        case ANSI_BLUE:
-           return ImVec4(0.0,0.0,0.750,1.0);;
-        case ANSI_MAGENTA:
-           return ImVec4(0.750,0.0,0.750,1.0);;
-        case ANSI_CYAN:
-           return ImVec4(0.0,0.750,0.750,1.0);;
-        case ANSI_WHITE:
-           return ImVec4(0.750,0.750,0.750,1.0);;
-        default:
-            return ImVec4(0.0,0.0,0.0,1.0);
-    }
-}
-
-
-ImVec4 getAnsiTextColorBright(AnsiColorCode code)
-{
-    switch (code)
-    {
-        case ANSI_RESET:
-            return ImVec4(1.0,1.0,1.0,1.0);
-        case ANSI_BLACK:
-            return ImVec4(0.0,0.0,0.0,1.0);
-        case ANSI_RED:
-            return ImVec4(1.0,0.0,0.0,1.0);
-        case ANSI_GREEN:
-            return ImVec4(0.0,1.0,0.0,1.0);
-        case ANSI_YELLOW:
-            return ImVec4(1.0,1.0,0.0,1.0);
-        case ANSI_BLUE:
-           return ImVec4(0.0,0.0,1.0,1.0);;
-        case ANSI_MAGENTA:
-           return ImVec4(1.0,0.0,1.0,1.0);;
-        case ANSI_CYAN:
-           return ImVec4(0.0,1.0,1.0,1.0);;
-        case ANSI_WHITE:
-           return ImVec4(1.0,1.0,1.0,1.0);;
-        default:
-            return ImVec4(0.0,0.0,0.0,1.0);
-    }
-}
-
-const std::string TEXT_COLOR_RESET              =   "\u001b[0m";
-const std::string TEXT_COLOR_BLACK              =   "\u001b[30m";
-const std::string TEXT_COLOR_RED                =   "\u001b[31m";
-const std::string TEXT_COLOR_GREEN              =   "\u001b[32m";
-const std::string TEXT_COLOR_YELLOW             =   "\u001b[33m";
-const std::string TEXT_COLOR_BLUE               =   "\u001b[34m";
-const std::string TEXT_COLOR_MAGENTA            =   "\u001b[35m";
-const std::string TEXT_COLOR_CYAN               =   "\u001b[36m";
-const std::string TEXT_COLOR_WHITE              =   "\u001b[37m";
-const std::string TEXT_COLOR_BLACK_BRIGHT       =   "\u001b[30;1m";
-const std::string TEXT_COLOR_RED_BRIGHT         =   "\u001b[31;1m";
-const std::string TEXT_COLOR_GREEN_BRIGHT       =   "\u001b[32;1m";
-const std::string TEXT_COLOR_YELLOW_BRIGHT      =   "\u001b[33;1m";
-const std::string TEXT_COLOR_BLUE_BRIGHT        =   "\u001b[34;1m";
-const std::string TEXT_COLOR_MAGENTA_BRIGHT     =   "\u001b[35;1m";
-const std::string TEXT_COLOR_CYAN_BRIGHT        =   "\u001b[36;1m";
-const std::string TEXT_COLOR_WHITE_BRIGHT       =   "\u001b[37;1m";
-const std::string TEXT_COLOR_BLACK_BKGRND       =   "\u001b[40m";
-const std::string TEXT_COLOR_RED_BKGRND         =   "\u001b[41m";
-const std::string TEXT_COLOR_GREEN_BKGRND       =   "\u001b[42m";
-const std::string TEXT_COLOR_YELLOW_BKGRND      =   "\u001b[43m";
-const std::string TEXT_COLOR_BLUE_BKGRND        =   "\u001b[44m";
-const std::string TEXT_COLOR_MAGENTA_BKGRND     =   "\u001b[45m";
-const std::string TEXT_COLOR_CYAN_BKGRND        =   "\u001b[46m";
-const std::string TEXT_COLOR_WHITE_BKGRND       =   "\u001b[47m";
-
-struct ColorTokenizer
-{
-    RuleSet rules;
-    
-    ImVec4 textColor = ImVec4(1.0,1.0,1.0,1.0);
-    ImU32 backgroundColor = 0;
-    AnsiColorCode lastColorToken = ANSI_WHITE;
-    bool hasBackgroundColor = false;
-    
-    void defaultFormatting() // call at beginning of output stream
-    {
-        textColor = ImVec4(1.0,1.0,1.0,1.0);
-        backgroundColor = 0;
-        lastColorToken = ANSI_WHITE;
-        hasBackgroundColor = false;
-    }
-    
-    void matched(Rule& tok, const std::string& str)
-    {
-        if (tok.showToken)
-        {
-            if (tok.hasColor)
-            {
-                ImGui::PushStyleColor(ImGuiCol_Text, tok.color);
-            }
-            
-            ImGui::TextUnformatted(str.c_str());
-            
-            if (tok.hasColor)
-            {
-                ImGui::PopStyleColor();
-            }
-            
-            ImGui::SameLine();
-        }
-        
-        if (tok.changeDefaultColors)
-        {
-            if (tok.hasColor) textColor =  tok.color;
-            if (tok.hasBackgroundColor)
-            {
-                backgroundColor = tok.backgroundColor;
-            }
-        }
-        
-        tok.action(*this, str);
-    }
-    
-    void unmatched(const std::string& str)
-    {
-        if (hasBackgroundColor)
-        {
-            ImVec2 textSize =  ImGui::CalcTextSize(str.c_str());
-            ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
-            ImVec2 sum = ImVec2(textSize[0] + cursorScreenPos[0], textSize[1] + cursorScreenPos[1]);
-            ImGui::GetWindowDrawList()->AddRectFilled(cursorScreenPos, sum, backgroundColor);
-        }
-        
-        ImGui::TextColored(textColor, str.c_str());
-        ImGui::SameLine();
-    }
-    
-    void checkRules(const std::string& str)
-    {
-        struct SearchParams
-        {
-            std::smatch match;
-            std::size_t searchStartedAt = 0;
-            std::string result;
-            std::string prefix;
-            std::string suffix;
-            bool hasResult = true;
-            
-            std::size_t offsetOfMatch()const
-            {
-                return match.prefix().length() + searchStartedAt;
-            }
-        };
-        
-        std::vector<SearchParams> matches;
-        
-        matches.resize(rules.size());
-        
-        int segmentStart = 0;
-        int priorityMatch = -1;
-        
-        do
-        {
-            int lastPriorityMatch = priorityMatch;
-            priorityMatch = -1;
-            
-            unsigned int startLocation = 0xffffffff;
-            
-            for (int i = 0; i < rules.size(); i++)
-            {
-                SearchParams& match = matches[i];
-                
-                if (!match.hasResult)continue;
-                
-                // update the next search result for the regex we chose, or for any regex whose latest result
-                // is now behind the edge of the string we've consumed
-                if ( (i == lastPriorityMatch) || (match.offsetOfMatch() < segmentStart) || (!segmentStart))
-                {
-                    match.hasResult = std::regex_search( (str.begin() + segmentStart), str.end()
-                                                        , match.match, rules[i].rule);
-                    
-                    match.searchStartedAt = segmentStart;
-                    
-                    if (match.hasResult)
-                    {
-                        //std::cout << "\tpossible match "<<match.match.str()<<std::endl;
-                        match.prefix = match.match.prefix();
-                        match.suffix = match.match.suffix();
-                        match.result = match.match.str();
-                    }
-                }
-                
-                // get the nearest for any
-                if (match.hasResult && match.offsetOfMatch() < startLocation)
-                {
-                    priorityMatch = i;
-                    std::size_t off = match.offsetOfMatch();
-                    startLocation = off;
-                }
-            }
-            
-            if (priorityMatch == -1)
-            {
-                unmatched(str.substr(segmentStart, str.size() - segmentStart));
-                
-                return;
-            }
-            
-            // handle first match
-            
-            const std::string prefix = matches[priorityMatch].prefix;
-            const std::string matchStr = matches[priorityMatch].result;
-            
-            if (prefix.length())
-            {
-                std::size_t offset = segmentStart - matches[priorityMatch].searchStartedAt;
-                if (prefix.length() > offset && prefix.length())
-                {
-                    std::size_t len = prefix.length() - offset;
-                    unmatched(prefix.substr(offset, len));
-                }
-            }
-            
-            matched(rules[priorityMatch], matchStr);
-            
-            segmentStart = matches[priorityMatch].offsetOfMatch() + matchStr.length();
-            
-        }while (true);
-    }
-};
-
-
-/// parse the ansi color code and change state
-void handleANSIString(ColorTokenizer& tok, const std::string& str)
-{
-    bool brightText = false;
-    AnsiColorCode& textCode = tok.lastColorToken;//(AnsiColorCode)0;
-    std::smatch match;
-
-    std::string sstring = str;
-
-    static std::regex rx("[[:digit:]]+");
-
-    while (std::regex_search(sstring, match, rx))
-    {
-       std::stringstream sstr;
-
-       sstr << match.str();
-       int result;
-       sstr>>result;
-
-       sstring = match.suffix();
-
-       processANSICode(tok, result, brightText, textCode);
-    }
-}
-
-
-/// change state based on an integer code in the ansi-code input stream
-void processANSICode(ColorTokenizer& tok, int code, bool& brightText, AnsiColorCode& textCode)
-{
-    switch (code)
-    {
-        case ANSI_RESET:
-            tok.hasBackgroundColor = false;
-            break;
-        case ANSI_BRIGHT_TEXT:
-            brightText = true;
-            if (textCode)
-            {
-                tok.textColor = getAnsiTextColorBright(textCode);
-            }
-            break;
-        case ANSI_BLACK:
-        case ANSI_RED:
-        case ANSI_GREEN:
-        case ANSI_YELLOW:
-        case ANSI_BLUE:
-        case ANSI_MAGENTA:
-        case ANSI_CYAN:
-        case ANSI_WHITE:
-            textCode = (AnsiColorCode)code;
-            
-            if (brightText)
-            {
-                tok.textColor = getAnsiTextColorBright((AnsiColorCode)code);
-            }
-            else
-            {
-                tok.textColor = getAnsiTextColor((AnsiColorCode)code);
-            }
-            break;
-        case ANSI_BLACK_BKGRND:
-        case ANSI_RED_BKGRND:
-        case ANSI_GREEN_BKGRND:
-        case ANSI_YELLOW_BKGRND:
-        case ANSI_BLUE_BKGRND:
-        case ANSI_MAGENTA_BKGRND:
-        case ANSI_CYAN_BKGRND:
-        case ANSI_WHITE_BKGRND:
-            tok.hasBackgroundColor = true;
-            tok.backgroundColor = getANSIBackgroundColor((AnsiColorCode)code);
-            break;
-        default:
-            std::cerr<<"unknown ansi code "<<code<<" in output\n";
-            return;
-    }
-}
-
-
-struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStream, public ColorTokenizer
+struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStream
 {
     ConsoleBuf            strb;
     std::ostream          consoleStream;
@@ -629,8 +402,6 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
         
         bindMemberCommand("Clear", *this, &IMGUIQuakeConsole::ClearLog, "Clear the console");
         bindCVar("formattedText", formattedText, "");
-        
-        makeDefaultRules(rules);
     }
     
     ~IMGUIQuakeConsole()
@@ -640,14 +411,28 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
     
     void ClearLog()
     {
-        strb.items.clear();
-        strb.items.push_back("");
+        strb.clear();
+        //strb.outputList.clear();
+        //strb.outputList.push_back("");
     }
     
     void optionsMenu()
     {
         ImGui::Checkbox("Auto-scroll", &AutoScroll);
     }
+    
+    bool linePassFilter(const ConsoleBuf::Line& l)
+    {
+        for (const ConsoleBuf::TextSequence& s : l.sequences)
+        {
+            const char* item = s.text.c_str();
+            if (Filter.PassFilter(item))
+                return true;
+        }
+        
+        return false;
+    }
+    
     
     void Draw(const char* title, bool* p_open)
     {
@@ -728,23 +513,29 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
         if (copy_to_clipboard)
             ImGui::LogToClipboard();
         
-        defaultFormatting(); // reset formatting at beginning of output
-        for (int i = 0; i < strb.items.size(); i++)
+        for (auto line : strb.lines)
         {
-            const char* item = strb.items[i].c_str();
-            if (!Filter.PassFilter(item))
+            if (!linePassFilter(line))
                 continue;
-     
-            if (formattedText)
+            
+            for (ConsoleBuf::TextSequence& seq : line.sequences)
             {
-                checkRules(strb.items[i]); // < regex color matching
+                if (seq.hasBackgroundColor)
+                {
+                    ImVec2 textSize =  ImGui::CalcTextSize(seq.text.c_str());
+                    ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
+                    ImVec2 sum = ImVec2(textSize[0] + cursorScreenPos[0], textSize[1] + cursorScreenPos[1]);
+                    ImGui::GetWindowDrawList()->AddRectFilled(cursorScreenPos, sum, seq.backgroundColor);
+                }
+                
+                ImGui::TextColored(seq.textColor, seq.text.c_str());
+                ImGui::SameLine();
             }
-            else
-            {
-                unmatched(strb.items[i]);
-            }
-            ImGui::NewLine(); // we know we're printing a single line - we do sameline() between tokens, then new line before we return
+            
+            ImGui::NewLine();
         }
+        
+        
 
         if (copy_to_clipboard)
             ImGui::LogFinish();
@@ -917,5 +708,93 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
         return 0;
     }
 };
+
+
+
+
+
+ImU32 getANSIBackgroundColor(AnsiColorCode code)
+{
+    switch (code)
+    {
+        case ANSI_RESET:
+            return 0;
+        case ANSI_BLACK_BKGRND:
+            return 0;
+        case ANSI_RED_BKGRND:
+            return RED_BKGRND_COLOR;
+        case ANSI_GREEN_BKGRND:
+            return GREEN_BKGRND_COLOR;
+        case ANSI_YELLOW_BKGRND:
+            return YELLOW_BKGRND_COLOR;
+        case ANSI_BLUE_BKGRND:
+            return BLUE_BKGRND_COLOR;
+        case ANSI_MAGENTA_BKGRND:
+            return MAGENTA_BKGRND_COLOR;
+        case ANSI_CYAN_BKGRND:
+            return CYAN_BKGRND_COLOR;
+        case ANSI_WHITE_BKGRND:
+            return WHITE_BKGRND_COLOR;
+        default:
+            return 0;
+    }
+}
+
+ImVec4 getAnsiTextColor(AnsiColorCode code)
+{
+    switch (code)
+    {
+        case ANSI_RESET:
+            return ImVec4(0.750,0.750,0.750,1.0);
+        case ANSI_BLACK:
+            return ImVec4(0.0,0.0,0.0,1.0);
+        case ANSI_RED:
+            return ImVec4(0.75,0.0,0.0,1.0);
+        case ANSI_GREEN:
+            return ImVec4(0.0,0.750,0.0,1.0);
+        case ANSI_YELLOW:
+            return ImVec4(0.750,0.750,0.0,1.0);
+        case ANSI_BLUE:
+           return ImVec4(0.0,0.0,0.750,1.0);;
+        case ANSI_MAGENTA:
+           return ImVec4(0.750,0.0,0.750,1.0);;
+        case ANSI_CYAN:
+           return ImVec4(0.0,0.750,0.750,1.0);;
+        case ANSI_WHITE:
+           return ImVec4(0.750,0.750,0.750,1.0);;
+        default:
+            return ImVec4(0.0,0.0,0.0,1.0);
+    }
+}
+
+
+ImVec4 getAnsiTextColorBright(AnsiColorCode code)
+{
+    switch (code)
+    {
+        case ANSI_RESET:
+            return ImVec4(1.0,1.0,1.0,1.0);
+        case ANSI_BLACK:
+            return ImVec4(0.0,0.0,0.0,1.0);
+        case ANSI_RED:
+            return ImVec4(1.0,0.0,0.0,1.0);
+        case ANSI_GREEN:
+            return ImVec4(0.0,1.0,0.0,1.0);
+        case ANSI_YELLOW:
+            return ImVec4(1.0,1.0,0.0,1.0);
+        case ANSI_BLUE:
+           return ImVec4(0.0,0.0,1.0,1.0);;
+        case ANSI_MAGENTA:
+           return ImVec4(1.0,0.0,1.0,1.0);;
+        case ANSI_CYAN:
+           return ImVec4(0.0,1.0,1.0,1.0);;
+        case ANSI_WHITE:
+           return ImVec4(1.0,1.0,1.0,1.0);;
+        default:
+            return ImVec4(0.0,0.0,0.0,1.0);
+    }
+}
+
+
 
 #endif /* ConsoleWidget_h */
