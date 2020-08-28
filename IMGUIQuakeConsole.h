@@ -98,6 +98,8 @@ struct ConsoleBuf : public std::streambuf
     ImVec4      textColor           = ImVec4(1.0,1.0,1.0,1.0);
     ImU32       backgroundColor     = 0;
     bool        hasBackgroundColor  = false;
+    bool        brightText          = false;
+    AnsiColorCode textCode = ANSI_RESET;
     
     struct TextSequence
     {
@@ -111,14 +113,15 @@ struct ConsoleBuf : public std::streambuf
     {
         std::vector<TextSequence> sequences;
         
-        TextSequence& curSequence() {
-            std::cout << "getting seq w seeq size " << sequences.size() <<std::endl;
+        TextSequence& curSequence()
+        {
             return sequences[sequences.size()-1];
             
         }
-        const TextSequence& curSequence() const {
-            std::cout << "getting seq w seeq size " << sequences.size() <<std::endl;
-            return sequences[sequences.size()-1];}
+        const TextSequence& curSequence() const
+        {
+            return sequences[sequences.size()-1];
+        }
     };
 
     std::vector<Line> lines;
@@ -136,13 +139,11 @@ struct ConsoleBuf : public std::streambuf
     
     Line& currentLine()
     {
-        std::cout << "getting line w lines size " << lines.size() <<std::endl;
         return lines[lines.size()-1];
     }
     
     const Line& currentLine() const
     {
-        std::cout << "getting line w lines size " << lines.size() <<std::endl;
         return lines[lines.size()-1];
     }
     
@@ -174,6 +175,11 @@ struct ConsoleBuf : public std::streambuf
             {
                 bool error = false;
                 
+                if (c == ';')
+                {
+                    std::cout<<"got semicolon"<<std::endl;
+                }
+                
                 if (std::isdigit((char)c) && listeningDigits)
                 {
                     numParse << (char)c;
@@ -189,8 +195,12 @@ struct ConsoleBuf : public std::streambuf
                             int x;
                             if (numParse >> x)
                             {
-                                //
+                                processANSICode(x);
                             }
+                            
+                            numParse.clear();
+                            
+                            brightText = false;
                             
                             currentLine().sequences.push_back({textColor, backgroundColor, "", hasBackgroundColor});
                             
@@ -206,6 +216,13 @@ struct ConsoleBuf : public std::streambuf
                         {
                             int x;
                             numParse >> x;
+                         
+                            numParse.clear();
+                            
+                            processANSICode(x);
+                            
+                            //currentLine().sequences.push_back({textColor, backgroundColor, "", hasBackgroundColor});
+                            break;
                         }
                         default:
                         {
@@ -256,8 +273,10 @@ struct ConsoleBuf : public std::streambuf
     }
     
     /// change state based on an integer code in the ansi-code input stream
-    void processANSICode(int code, bool& brightText, AnsiColorCode& textCode)
+    void processANSICode(int code/*, bool& brightText, AnsiColorCode& textCode*/)
     {
+        std::cout << code << std::endl;
+        
         switch (code)
         {
             case ANSI_RESET:
