@@ -16,8 +16,12 @@
 #include <imgui.h>
 #include "QuakeStyleConsole.h"
 
+
+namespace Virtuoso
+{
+
 const ImVec4 COMMENT_COLOR = ImVec4(1.0f, 0.8f, 0.6f, 1.0f);
-const ImVec4 ERROR_COLOR = ImVec4(2.0f, 0.2f, 0.2f, 1.0f);
+const ImVec4 ERROR_COLOR   = ImVec4(2.0f, 0.2f, 0.2f, 1.0f);
 const ImVec4 WARNING_COLOR = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
 
 #define RED_BKGRND_COLOR        IM_COL32(255,0,0,255);
@@ -79,28 +83,20 @@ enum AnsiColorCode
 };
 
 
-ImU32 getANSIBackgroundColor(AnsiColorCode code);
-ImVec4 getAnsiTextColor(AnsiColorCode code);
-ImVec4 getAnsiTextColorBright(AnsiColorCode code);
-
-
-
 // Portable helpers
 
-static int   Strnicmp(const char* s1, const char* s2, int n) { int d = 0; while (n > 0 && (d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; n--; } return d; }
+inline static int   Strnicmp (const char* s1, const char* s2, int n) { int d = 0; while (n > 0 && (d = toupper(*s2) - toupper(*s1)) == 0 && *s1) { s1++; s2++; n--; } return d; }
 
-static void  Strtrim(char* s)                                { char* str_end = s + strlen(s); while (str_end > s && str_end[-1] == ' ') str_end--; *str_end = 0; }
+inline static void  Strtrim (char* s) { char* str_end = s + strlen(s); while (str_end > s && str_end[-1] == ' ') str_end--; *str_end = 0; }
 
 
-struct ConsoleBuf : public std::streambuf
+/// Stream Buffer for the IMGUI Console Terminal.  Breaks text stream into Lines, which are an array of formatted text sequences
+/// Formatting is presently handled via ANSI Color Codes.  Some other input transformation can be applied to the input before it hits this stream
+/// eg. to do syntax highlighting, etc.
+class ConsoleBuf : public std::streambuf
 {
-    // current formatting
-    ImVec4      textColor           = ImVec4(1.0,1.0,1.0,1.0);
-    ImU32       backgroundColor     = 0;
-    bool        hasBackgroundColor  = false;
-    bool        brightText          = false;
-    AnsiColorCode textCode = ANSI_RESET;
-    
+public:
+
     struct TextSequence
     {
         ImVec4      textColor           = ImVec4(1.0,1.0,1.0,1.0);
@@ -113,287 +109,67 @@ struct ConsoleBuf : public std::streambuf
     {
         std::vector<TextSequence> sequences;
         
-        TextSequence& curSequence()
-        {
-            return sequences[sequences.size()-1];
-            
-        }
-        const TextSequence& curSequence() const
-        {
-            return sequences[sequences.size()-1];
-        }
+        inline TextSequence& curSequence() { return sequences[sequences.size()-1]; }
+        inline const TextSequence& curSequence() const { return sequences[sequences.size()-1]; }
     };
+    
+    void clear();
+
+    inline const Line& currentLine() const { return lines[lines.size()-1]; }
+    inline const std::string& curStr() const { return currentLine().curSequence().text; }
+
+    ConsoleBuf();
+    
+    inline const std::vector<Line>& getLines () const {return lines;}
+
+protected:
+    
+    /// change formatting state based on an integer code in the ansi-code input stream.  called by the streambuf methods
+    void processANSICode(int code);
+    
+    // -- streambuf overloads --
+    int overflow(int c);
+    std::streamsize xsputn ( const char * s, std::streamsize n );
+    
+    // current formatting
+    ImVec4          textColor           =     ImVec4(1.0,1.0,1.0,1.0);
+    ImU32           backgroundColor     =     0;
+    bool            hasBackgroundColor  =     false;
+    bool            brightText          =     false;
+    AnsiColorCode   textCode            =     ANSI_RESET;
 
     std::vector<Line> lines;
     bool parsingANSICode = false;
     bool listeningDigits = false;
     std::stringstream numParse;
     
-    
-    void clear()
-    {
-        lines.clear();
-        lines.push_back(Line());
-        currentLine().sequences.push_back(TextSequence()); // start a new run of chars with default formatting
-    }
-    
-    Line& currentLine()
-    {
-        return lines[lines.size()-1];
-    }
-    
-    const Line& currentLine() const
-    {
-        return lines[lines.size()-1];
-    }
-    
-    std::string& curStr()
-    {
-        return currentLine().curSequence().text;
-    }
-    
-    struct membuf: std::streambuf
-    {
-        membuf(const char* begin, const char* end)
-        {
-            this->setg((char*)begin, (char*)begin, (char*)end);
-        }
-    };
-    
-    ConsoleBuf()
-    {
-        lines.push_back(Line());
-        currentLine().sequences.push_back(TextSequence()); // start a new run of chars with default formatting
-    }
-    
-    // "\u001b[33;1m";
-    int overflow(int c)
-    {
-        if (c != EOF)
-        {
-            if (parsingANSICode)
-            {
-                bool error = false;
-                
-                if (c == ';')
-                {
-                    std::cout<<"got semicolon"<<std::endl;
-                }
-                
-                if (std::isdigit((char)c) && listeningDigits)
-                {
-                    numParse << (char)c;
-                }
-                else
-                {
-                    switch (c)
-                    {
-                        case 'm': // end of ansi code; apply color formatting to new sequence
-                        {
-                            parsingANSICode = false;
-                            
-                            int x;
-                            if (numParse >> x)
-                            {
-                                processANSICode(x);
-                            }
-                            
-                            numParse.clear();
-                            
-                            brightText = false;
-                            
-                            currentLine().sequences.push_back({textColor, backgroundColor, "", hasBackgroundColor});
-                            
-                            break;
-                        }
-                        case '[':
-                        {
-                            listeningDigits = true;
-                            numParse.clear();
-                            break;
-                        }
-                        case ';':
-                        {
-                            int x;
-                            numParse >> x;
-                         
-                            numParse.clear();
-                            
-                            processANSICode(x);
-                            
-                            //currentLine().sequences.push_back({textColor, backgroundColor, "", hasBackgroundColor});
-                            break;
-                        }
-                        default:
-                        {
-                            error = true;
-                            break;
-                        }
-                    }
-                    
-                    if (error)
-                    {
-                        numParse.clear();
-                        listeningDigits = false;
-                        parsingANSICode = false;
-                        
-                        std::cerr <<c;
-                        //curStr() += (char)c;
-                    }
-                }
-            }
-            else
-            {
-                switch (c)
-                {
-                    case '\u001b':
-                    {
-                        parsingANSICode = true;
-                        numParse.clear();
-                        break;
-                    }
-                    case '\n':
-                    {
-                        //currentline add \n
-                        lines.push_back(Line());
-                        currentLine().sequences.push_back(TextSequence());
-                        break;
-                    }
-                    default:
-                    {
-                        //std::cerr <<c;
-                        curStr() +=(char)c;
-                    }
-                }
-            }
-            
-        
-        }
-        return c;
-    }
-    
-    /// change state based on an integer code in the ansi-code input stream
-    void processANSICode(int code/*, bool& brightText, AnsiColorCode& textCode*/)
-    {
-        std::cout << code << std::endl;
-        
-        switch (code)
-        {
-            case ANSI_RESET:
-                hasBackgroundColor = false;
-                break;
-            case ANSI_BRIGHT_TEXT:
-                brightText = true;
-                if (textCode)
-                {
-                    textColor = getAnsiTextColorBright(textCode);
-                }
-                break;
-            case ANSI_BLACK:
-            case ANSI_RED:
-            case ANSI_GREEN:
-            case ANSI_YELLOW:
-            case ANSI_BLUE:
-            case ANSI_MAGENTA:
-            case ANSI_CYAN:
-            case ANSI_WHITE:
-                textCode = (AnsiColorCode)code;
-                
-                if (brightText)
-                {
-                    textColor = getAnsiTextColorBright((AnsiColorCode)code);
-                }
-                else
-                {
-                    textColor = getAnsiTextColor((AnsiColorCode)code);
-                }
-                break;
-            case ANSI_BLACK_BKGRND:
-            case ANSI_RED_BKGRND:
-            case ANSI_GREEN_BKGRND:
-            case ANSI_YELLOW_BKGRND:
-            case ANSI_BLUE_BKGRND:
-            case ANSI_MAGENTA_BKGRND:
-            case ANSI_CYAN_BKGRND:
-            case ANSI_WHITE_BKGRND:
-                hasBackgroundColor = true;
-                backgroundColor = getANSIBackgroundColor((AnsiColorCode)code);
-                break;
-            default:
-                std::cerr<<"unknown ansi code "<<code<<" in output\n";
-                return;
-        }
-    }
-
-    /*std::streamsize xsputn ( const char * s, std::streamsize n )
-    {
-        membuf mb(s, s + n);
-        
-        std::istream ib(&mb);
-        
-        while (!ib.eof())
-        {
-            std::string ln;
-            std::getline(ib, ln);
-            curStr()+=ln;
-            
-            if (!ib.eof())
-            {
-                items.push_back("");
-            }
-        }
-        
-        return n;
-    }*/
+    inline Line& currentLine() { return lines[lines.size()-1]; }
+    inline std::string& curStr() { return currentLine().curSequence().text; }
 };
 
 
+/// streambuffer implementation for MultiStream
 class MultiStreamBuf: public  std::streambuf
 {
 public:
     
     std::unordered_set<std::ostream*> streams;
     
-    MultiStreamBuf()
-    {
-    }
+    MultiStreamBuf() {}
     
-    int overflow(int in)
-    {
-        char c = in;///\todo check for eof, etc?
-        for (std::ostream* str : streams )
-        {
-            (*str) << c;
-        }
-        return 1;
-    }
+    int overflow(int in);
     
-    std::streamsize xsputn ( const char * s, std::streamsize n )
-    {
-        std::streamsize ssz=0;
-        
-        for (std::ostream* str : streams )
-        {
-            ssz = str->rdbuf()->sputn(s, n);
-        }
-        
-        return ssz;
-    }
+    std::streamsize xsputn ( const char * s, std::streamsize n );
 };
 
+/// An ostream that is actually a container of ostream pointers, that pipes output to every ostream in the container
 class MultiStream : public std::ostream
 {
     MultiStreamBuf buf;
 public:
-    MultiStream() : std::ostream(&buf)
-    {
-        
-    }
+    MultiStream() : std::ostream(&buf) {}
     
-    void addStream(std::ostream& str)
-    {
-        buf.streams.insert(&str);
-    }
+    void addStream(std::ostream& str) { buf.streams.insert(&str); }
 };
 
 
@@ -532,7 +308,7 @@ struct IMGUIQuakeConsole : public Virtuoso::QuakeStyleConsole, public MultiStrea
         if (copy_to_clipboard)
             ImGui::LogToClipboard();
         
-        for (auto line : strb.lines)
+        for (auto line : strb.getLines())
         {
             if (!linePassFilter(line))
                 continue;
@@ -815,5 +591,239 @@ ImVec4 getAnsiTextColorBright(AnsiColorCode code)
 }
 
 
+// --- MultiStreamBuf implementation ---
+    
+int MultiStreamBuf:: overflow(int in)
+{
+    char c = in;///\todo check for eof, etc?
+    for (std::ostream* str : streams )
+    {
+        (*str) << c;
+    }
+    return 1;
+}
 
+std::streamsize MultiStreamBuf:: xsputn ( const char * s, std::streamsize n )
+{
+    std::streamsize ssz=0;
+    
+    for (std::ostream* str : streams )
+    {
+        ssz = str->rdbuf()->sputn(s, n);
+    }
+
+    return ssz;
+}
+
+
+// ---- ConsoleBuf implementation ----
+
+ImU32  getANSIBackgroundColor(AnsiColorCode code);
+ImVec4 getAnsiTextColor(AnsiColorCode code);
+ImVec4 getAnsiTextColorBright(AnsiColorCode code);
+
+void ConsoleBuf::clear()
+{
+    lines.clear();
+    lines.push_back(Line());
+    currentLine().sequences.push_back(TextSequence()); // start a new run of chars with default formatting
+}
+
+
+void ConsoleBuf::processANSICode(int code)
+{
+    std::cout << code << std::endl;
+    
+    switch (code)
+    {
+        case ANSI_RESET:
+            hasBackgroundColor = false;
+            break;
+        case ANSI_BRIGHT_TEXT:
+            brightText = true;
+            if (textCode)
+            {
+                textColor = getAnsiTextColorBright(textCode);
+            }
+            break;
+        case ANSI_BLACK:
+        case ANSI_RED:
+        case ANSI_GREEN:
+        case ANSI_YELLOW:
+        case ANSI_BLUE:
+        case ANSI_MAGENTA:
+        case ANSI_CYAN:
+        case ANSI_WHITE:
+            textCode = (AnsiColorCode)code;
+            
+            if (brightText)
+            {
+                textColor = getAnsiTextColorBright((AnsiColorCode)code);
+            }
+            else
+            {
+                textColor = getAnsiTextColor((AnsiColorCode)code);
+            }
+            break;
+        case ANSI_BLACK_BKGRND:
+        case ANSI_RED_BKGRND:
+        case ANSI_GREEN_BKGRND:
+        case ANSI_YELLOW_BKGRND:
+        case ANSI_BLUE_BKGRND:
+        case ANSI_MAGENTA_BKGRND:
+        case ANSI_CYAN_BKGRND:
+        case ANSI_WHITE_BKGRND:
+            hasBackgroundColor = true;
+            backgroundColor = getANSIBackgroundColor((AnsiColorCode)code);
+            break;
+        default:
+            std::cerr<<"unknown ansi code "<<code<<" in output\n";
+            return;
+    }
+}
+
+
+int ConsoleBuf::overflow(int c)
+{
+    if (c != EOF)
+    {
+        if (parsingANSICode)
+        {
+            bool error = false;
+            
+            if (c == ';')
+            {
+                std::cout<<"got semicolon"<<std::endl;
+            }
+            
+            if (std::isdigit((char)c) && listeningDigits)
+            {
+                numParse << (char)c;
+            }
+            else
+            {
+                switch (c)
+                {
+                    case 'm': // end of ansi code; apply color formatting to new sequence
+                    {
+                        parsingANSICode = false;
+                        
+                        int x;
+                        if (numParse >> x)
+                        {
+                            processANSICode(x);
+                        }
+                        
+                        numParse.clear();
+                        
+                        brightText = false;
+                        
+                        currentLine().sequences.push_back({textColor, backgroundColor, "", hasBackgroundColor});
+                        
+                        break;
+                    }
+                    case '[':
+                    {
+                        listeningDigits = true;
+                        numParse.clear();
+                        break;
+                    }
+                    case ';':
+                    {
+                        int x;
+                        numParse >> x;
+                     
+                        numParse.clear();
+                        
+                        processANSICode(x);
+                        
+                        break;
+                    }
+                    default:
+                    {
+                        error = true;
+                        break;
+                    }
+                }
+                
+                if (error)
+                {
+                    numParse.clear();
+                    listeningDigits = false;
+                    parsingANSICode = false;
+                    
+                    std::cerr <<c;
+                    //curStr() += (char)c;
+                }
+            }
+        }
+        else
+        {
+            switch (c)
+            {
+                case '\u001b':
+                {
+                    parsingANSICode = true;
+                    numParse.clear();
+                    break;
+                }
+                case '\n':
+                {
+                    //currentline add \n
+                    lines.push_back(Line());
+                    currentLine().sequences.push_back(TextSequence({textColor, backgroundColor, "", hasBackgroundColor}));
+                    break;
+                }
+                default:
+                {
+                    //std::cerr <<c;
+                    curStr() +=(char)c;
+                }
+            }
+        }
+        
+    
+    }
+    return c;
+}
+
+
+std::streamsize ConsoleBuf::xsputn ( const char * s, std::streamsize n )
+{
+ 
+     struct membuf: std::streambuf
+     {
+         membuf(const char* begin, const char* end)
+         {
+             this->setg((char*)begin, (char*)begin, (char*)end);
+         }
+     };
+ 
+    membuf mb(s, s + n);
+    
+    std::istream ib(&mb);
+    
+    while (!ib.eof())
+    {
+        std::string ln;
+        std::getline(ib, ln);
+        curStr()+=ln;
+        
+        if (!ib.eof())
+        {
+            //items.push_back("");
+        }
+    }
+    
+    return n;
+}
+
+
+ConsoleBuf::ConsoleBuf()
+{
+    lines.push_back(Line());
+    currentLine().sequences.push_back(TextSequence()); // start a new run of chars with default formatting
+}
+
+}
 #endif /* ConsoleWidget_h */
