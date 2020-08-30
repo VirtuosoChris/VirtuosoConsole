@@ -35,16 +35,30 @@ struct GLFWApplication
     
     struct FpsCounter
     {
+    protected:
         double intervalStart = 0;
         std::size_t frames = 0;
-        double intervalLength = .25f; // in seconds
         double fps = 0.0;
+        bool _newValue;
+    public:
+        
+        double intervalLength = .25f; // in seconds
+        
+        double value()
+        {
+            _newValue = false;
+            return fps;
+        }
+        
+        bool newValue()const{return _newValue;}
         
         void endFrame(double newTime)
         {
             frames++;
+
             if (newTime - intervalStart > intervalLength)
             {
+                _newValue = true;
                 fps = frames / intervalLength;
                 intervalStart = newTime;
                 frames = 0;

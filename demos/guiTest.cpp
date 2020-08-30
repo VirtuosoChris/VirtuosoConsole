@@ -88,9 +88,9 @@ struct ConsoleApplication : public GLFWApplication
     
     void render()
     {
-        if (!fpsCounter.frames)
+        if (fpsCounter.newValue())
         {
-            console2 << " FPS : " << fpsCounter.fps <<'\n';
+            console2 << " FPS : " << fpsCounter.value() <<'\n';
         }
         
         static ImguiRenderState imguiRenderer;
