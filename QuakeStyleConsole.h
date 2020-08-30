@@ -50,10 +50,16 @@ namespace Virtuoso
 {
 class QuakeStyleConsole
 {
-
 public: // the methods in this section are what you should use in your code
 	
     static const unsigned int defaultHistorySize = 10u; ///size of the history file
+    
+    typedef std::function< void (std::istream& is, std::ostream& os)> ConsoleFunc;
+    
+    typedef std::unordered_map < std::string, ConsoleFunc > CommandTable;
+    typedef std::unordered_map < std::string, ConsoleFunc > CVarReadTable;
+    typedef std::unordered_map < std::string, ConsoleFunc > CVarPrintTable;
+    typedef std::unordered_map < std::string, std::string > HelpTable;
 	
     /// Constructor binds the default commands to the command table & initializes history buffer
     QuakeStyleConsole(std::size_t maxHistory=defaultHistorySize);
@@ -112,8 +118,6 @@ public: // the methods in this section are what you should use in your code
     /// same as bindCommand, but for a member function of an object.  Object instance is first argument after the command name
     template<typename O, typename ...Args>
     void bindMemberCommand(const std::string& commandName, O& obj, void (O::*fptr)(Args...), const std::string& help = "");
-    
-    typedef std::function< void (std::istream& is, std::ostream& os)> ConsoleFunc;
 
     /// the bindCommand that actually does the work of adding commands to the table AFTER they've been coerced to a ConsoleFunc that takes the input/output from executeCommand.  Takes optional help string.
     void bindCommand(const std::string& commandName, ConsoleFunc f, const std::string& help = "");
@@ -143,7 +147,11 @@ public: // the methods in this section are what you should use in your code
     void setHelpTopic(const std::string& topic, const std::string& data);
 
     const std::deque<std::string>& historyBuffer() const;
-    
+    inline const CommandTable& getCommandTable() const {return commandTable;}
+    inline const CVarReadTable& getCVarReadTable() const {return cvarReadFTable;}
+    inline const CVarPrintTable& getCVarPrintTable() const {return cvarPrintFTable;}
+    inline const HelpTable& getHelpTable() const {return helpTable;}
+
 protected:
 
     /// WindowedQueue - We implement a ring buffer for the command history as a queue
@@ -204,14 +212,7 @@ protected:
        
     typedef WindowedQueue<std::string> ConsoleHistoryBuffer;
 
-
-
-    ConsoleHistoryBuffer history_buffer; ///history buffer of previous commands
-  
-    typedef std::unordered_map < std::string, ConsoleFunc > CommandTable;
-    typedef std::unordered_map < std::string, ConsoleFunc > CVarReadTable;
-    typedef std::unordered_map < std::string, ConsoleFunc > CVarPrintTable;
-    typedef std::unordered_map < std::string, std::string > HelpTable;
+    ConsoleHistoryBuffer history_buffer; ///< history buffer of previous commands
     
     /// maps strings naming cVars to functions which read them from a std::istream.
     /// This allows the console to parse variables of any type representable as text without modifying the console code or adding custom parsing code.
@@ -267,57 +268,57 @@ protected:
     template <typename... Args>
     void conditionalExecute(std::istream& is, std::ostream& os, std::function< void(Args...) > f, const Args&... args);
 
-    ///adds the built-in commands to the command table
+    /// adds the built-in commands to the command table
     void bindBasicCommands();
 
-    ///helper function to return a default-constructed temp variable of a particular type.  Used in parsing arguments for C++ functions bound to the console
+    /// helper function to return a default-constructed temp variable of a particular type.  Used in parsing arguments for C++ functions bound to the console
     template <class T>
     T makeTemp();
 
-    ///for parsing arguments to C++ functions bound to the console.  variadic template that recursively parses our function arguments in order
+    /// for parsing arguments to C++ functions bound to the console.  variadic template that recursively parses our function arguments in order
     template <typename FirstType, typename... Args>
     void populateTemps(std::istream& is, FirstType& in,  Args&... Temps);
 
-    ///for parsing arguments to C++ functions bound to the console. variadic template that recursively parses our function arguments in order.  base case
+    /// for parsing arguments to C++ functions bound to the console. variadic template that recursively parses our function arguments in order.  base case
     template <typename FirstType>
     void populateTemps(std::istream& is, FirstType& in);
 
-    ///for parsing arguments to C++ functions bound to the console. variadic template that recursively parses our function arguments in order.  base case
+    /// for parsing arguments to C++ functions bound to the console. variadic template that recursively parses our function arguments in order.  base case
     void populateTemps(std::istream& is) {}
 
-    ///for parsing arguments to C++ functions bound to the console.  call starts populating temp variables
+    /// for parsing arguments to C++ functions bound to the console.  call starts populating temp variables
     template <typename... Args>
     void goPopulateTemps(std::istream& is, Args&... temps);
 
-    ///for parsing arguments to C++ functions bound to the console.  Populates the temp variables using the istream, then calls the function with them
+    /// for parsing arguments to C++ functions bound to the console.  Populates the temp variables using the istream, then calls the function with them
     template<typename... Args>
     void populateAndExecute(std::istream& is, std::ostream& os, std::function<void(Args...)> f,
                             typename std::remove_const<typename std::remove_reference<Args>::type >::type...
                             temps);
 
 
-    ///helper function that takes an input line containing commands and dereferences any console variables whose names appear prefixed by the $ symbol
+    /// helper function that takes an input line containing commands and dereferences any console variables whose names appear prefixed by the $ symbol
     void dereferenceVariables(std::istream& is, std::ostream& os, std::string& str);
 
-    ///assigns the value of a dynamically created console variable using the console's input stream
+    /// assigns the value of a dynamically created console variable using the console's input stream
     template<class T>
     void assignDynamicVariable(std::istream& is, std::shared_ptr<T> var);
 
-    ///writes a dynamically created console variable to the console output
+    /// writes a dynamically created console variable to the console output
     template <class T>
     void writeDynamicVariable(std::ostream& os, std::shared_ptr<T> var);
 
-    ///bind dynamically created console variable to the variable table and set the associated help string
+    /// bind dynamically created console variable to the variable table and set the associated help string
     template<class T>
     void bindDynamicCVar(const std::string& var, const T& value, const std::string& help);
 
-    ///bind dynamically created console variable to the variable table.
+    /// bind dynamically created console variable to the variable table.
     template<class T>
     void bindDynamicCVar(const std::string& var, const T& valueIn);
     
 public:
 
-    ///Dynamic variables are string-based variables that can be created, assigned, and dereferenced from the console itself rather than C++ code
+    /// Dynamic variables are string-based variables that can be created, assigned, and dereferenced from the console itself rather than C++ code
     struct DynamicVariable : public std::string
     {
     };
