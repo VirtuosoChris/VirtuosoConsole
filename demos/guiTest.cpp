@@ -21,7 +21,7 @@
 #include <imgui/examples/imgui_impl_glfw.h>
 #include <imgui/examples/imgui_impl_glfw.cpp>
 
-#include "../ConsoleFormatting.h"
+//#include "../ConsoleFormatting.h"
 
 #include "../IMGUIQuakeConsole.h"
 
@@ -47,7 +47,7 @@ struct ConsoleApplication : public GLFWApplication
     {
         MultiStream ms;
         ms.addStream(console2);
-        
+        console3 << " welcome to console\n";
         ms << "-- Message from ConsoleApplication() constructor" << std::endl;
         ms << "[warning] - This thing supports color!\n";
         ms << "\033\[1mAND ANSI COLOR CODES TOO" << std::endl;

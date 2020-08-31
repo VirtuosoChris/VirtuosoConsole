@@ -269,6 +269,8 @@ public:
     
     int HistoryPos = -1;             ///< index into the console history buffer, for when we press up/down arrow to scroll previous commands
     
+    float fontScale = 1.2f;          ///< text scale for the console widget window
+    
     void ClearLog();                 ///< Clear the ostream
     
     void render(const char* title, bool* p_open); ///< Renders an IMGUI window implementation of the console
@@ -371,14 +373,17 @@ inline void IMGUIOstream::render()
 // -------------------------------------------
 
 inline IMGUIQuakeConsole::IMGUIQuakeConsole()
- {
-     addStream(os);
+{
+    addStream(os);
 
-     is.textCallbacks[ImGuiInputTextFlags_CallbackCompletion] = [this](ImGuiInputTextCallbackData* data){this->textCompletionCallback(data);};
-     
-     is.textCallbacks[ImGuiInputTextFlags_CallbackHistory] = [this](ImGuiInputTextCallbackData* data){this->historyCallback(data);};
-        
-     con.bindMemberCommand("Clear", *this, &IMGUIQuakeConsole::ClearLog, "Clear the console");
+    is.textCallbacks[ImGuiInputTextFlags_CallbackCompletion] = [this](ImGuiInputTextCallbackData* data){this->textCompletionCallback(data);};
+
+    is.textCallbacks[ImGuiInputTextFlags_CallbackHistory] = [this](ImGuiInputTextCallbackData* data){this->historyCallback(data);};
+
+    con.bindMemberCommand("consoleClear", *this, &IMGUIQuakeConsole::ClearLog, "Clear the console");
+    con.bindCVar("consoleTextScale", fontScale);
+    
+    con.style = QuakeStyleConsole::ConsoleStylingColor();
  }
  
 
@@ -398,6 +403,8 @@ inline IMGUIQuakeConsole::IMGUIQuakeConsole()
         return;
     }
     
+     ImGui::SetWindowFontScale(fontScale);
+     
     // As a specific feature guaranteed by the library, after calling Begin() the last Item represent the title bar.
     // So e.g. IsItemHovered() will return true when hovering the title bar.
     // Here we create a context menu only available from the title bar.
@@ -617,7 +624,7 @@ inline ImVec4 getAnsiTextColor(AnsiColorCode code)
     switch (code)
     {
         case ANSI_RESET:
-            return ImVec4(0.750,0.750,0.750,1.0);
+            return ImVec4(1.0,1.0,1.0,1.0);
         case ANSI_BLACK:
             return ImVec4(0.0,0.0,0.0,1.0);
         case ANSI_RED:
@@ -708,12 +715,11 @@ inline void ConsoleBuf::clear()
 
 inline void ConsoleBuf::processANSICode(int code)
 {
-    std::cout << code << std::endl;
-    
     switch (code)
     {
         case ANSI_RESET:
             hasBackgroundColor = false;
+            textColor = getAnsiTextColor((AnsiColorCode)code);
             break;
         case ANSI_BRIGHT_TEXT:
             brightText = true;
@@ -766,11 +772,6 @@ inline int ConsoleBuf::overflow(int c)
         if (parsingANSICode)
         {
             bool error = false;
-            
-            if (c == ';')
-            {
-                std::cout<<"got semicolon"<<std::endl;
-            }
             
             if (std::isdigit((char)c) && listeningDigits)
             {

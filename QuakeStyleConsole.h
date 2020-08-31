@@ -48,6 +48,7 @@
 
 namespace Virtuoso
 {
+
 class QuakeStyleConsole
 {
 public: // the methods in this section are what you should use in your code
@@ -138,9 +139,36 @@ public: // the methods in this section are what you should use in your code
 
     /// write the history buffer to file named by ostream outFile
     void saveHistoryBuffer(std::ofstream& outfile);
-
+    
+    
     // ------------------------------------//
-    /* --------- OTHER ------------------- */
+    /* ----------OUTPUT STYLING------------*/
+    // ------------------------------------//
+    
+    /// begin / end pairs that wrap output of a certain type
+    struct ConsoleStyling
+    {
+        std::pair<std::string, std::string> error;
+        std::pair<std::string, std::string> warning;
+        std::pair<std::string, std::string> echo;
+    };
+    
+    /// ANSI color codes wrap the output in the scope.
+    inline static ConsoleStyling ConsoleStylingColor() { return { {"\u001b[31;1m[error]: ","\u001b[0m"}, {"\u001b[33;1m[warning]: ","\u001b[0m"},{"\u001b[32;1m> ", "\u001b[0m"} };}
+
+    /// Styling parameters with no colors, just tags
+    inline static ConsoleStyling ConsoleStylingPlain() { return { {"[error]: ",""}, {"[warning]: ",""},{"> ", ""} };}
+    
+    ConsoleStyling style = ConsoleStylingPlain(); ///< public so user can modify.  Initialized using uncolored output
+    
+    // - sugared getters for console implementation - 
+    
+    const std::pair<std::string, std::string>& error(){ return style.error;}
+    const std::pair<std::string, std::string>& warning(){ return style.warning;}
+    const std::pair<std::string, std::string>& echo(){ return style.echo;}
+    
+    // ------------------------------------//
+    /* ----OTHER GETTERS AND SETTERS-------*/
     // ------------------------------------//
     
     /// sets the help string (see built in 'help' command) for a given topic
@@ -151,7 +179,7 @@ public: // the methods in this section are what you should use in your code
     inline const CVarReadTable& getCVarReadTable() const {return cvarReadFTable;}
     inline const CVarPrintTable& getCVarPrintTable() const {return cvarPrintFTable;}
     inline const HelpTable& getHelpTable() const {return helpTable;}
-
+    
 protected:
 
     /// WindowedQueue - We implement a ring buffer for the command history as a queue
@@ -322,10 +350,66 @@ public:
     struct DynamicVariable : public std::string
     {
     };
+    
+    // -----------------------------------------------------------------------------
+    // EndOfLineEscapeStreamScope : by Steve132
+    // For wrapping the output of an ostream push sequence << in a begin / end tag
+    // Used for console output formatting
+    // -----------------------------------------------------------------------------
+    typedef std::pair<std::string, std::string> EndOfLineEscapeTag;
+
+    struct EndOfLineEscapeStreamScope
+    {
+    protected:
+
+        EndOfLineEscapeTag tag;
+        std::ostream& os;
+
+        EndOfLineEscapeStreamScope(const EndOfLineEscapeTag& ttag,std::ostream& tout):
+            tag(ttag),
+            os(tout)
+        {
+            os << tag.first; //you can overload this for custom ostream types with a different color interface
+            //this might also have a stack interface for if you need multiple resets
+        }
+
+        friend EndOfLineEscapeStreamScope operator<<(std::ostream& out,const EndOfLineEscapeTag& tg);
+
+    public:
+
+        template<class T>
+        EndOfLineEscapeStreamScope& operator<<(T&& t)
+        {
+            os << std::forward<T>(t);
+            return *this;
+        }
+
+        EndOfLineEscapeStreamScope& operator<<(std::ostream& (&M)( std::ostream & ))
+        {
+            M(os);
+            return *this;
+        }
+
+        ~EndOfLineEscapeStreamScope()
+        {
+            os << tag.second;
+        }
+    };
 };
+
+inline Virtuoso::QuakeStyleConsole::EndOfLineEscapeStreamScope operator << (std::ostream& os,const Virtuoso::QuakeStyleConsole::EndOfLineEscapeTag& tg)
+{
+    return Virtuoso::QuakeStyleConsole::EndOfLineEscapeStreamScope(tg,os);
+}
 
 }
 
+
+
+
+// -----------------------------------------------------------------------------
+// QuakeStyleConsole : Method Implementations below
+// -----------------------------------------------------------------------------
 
 template <class T>
 inline T Virtuoso::QuakeStyleConsole::makeTemp()
@@ -340,7 +424,7 @@ inline void Virtuoso::QuakeStyleConsole::conditionalExecute(std::istream& is, st
 {
     if (is.fail())
     {
-        os << "[error] : SYNTAX ERROR IN FUNCTION ARGUMENTS" << std::endl;
+        os << error() << "Syntax error in function arguments." << std::endl;
         is.clear();
     }
     else
@@ -473,7 +557,7 @@ void Virtuoso::QuakeStyleConsole::setCvar(std::istream& is, std::ostream& os, T*
 
     if (is.fail())
     {
-        os << "[error] : SYNTAX ERROR IN VARIABLE PARSER" << std::endl;
+        os << error() << "SYNTAX ERROR IN VARIABLE PARSER" << std::endl;
         is.clear();
     }
     else
@@ -546,7 +630,7 @@ inline void Virtuoso::QuakeStyleConsole::executeFile(const std::string& x, std::
 
     if(!f.is_open())
     {
-        output << "[error] : unable to open file!" << std::endl;
+        output << error() << "Unable to open file : " << x << std::endl;
     }
     else
     {
@@ -576,7 +660,7 @@ inline void Virtuoso::QuakeStyleConsole::commandHelp(std::istream& is, std::ostr
         }
         else
         {
-            os << "[error] : No help available on " << x << std::endl;
+            os << error() << "No help available for topic: " << x << std::endl;
         }
     }
     else
@@ -631,7 +715,7 @@ inline void Virtuoso::QuakeStyleConsole::commandSet(std::istream& is, std::ostre
 
     if (!(is>>x))
     {
-        os << "[error] : Syntax error parsing argument" << std::endl;
+        os << error() << "Syntax error parsing argument" << std::endl;
         return;
     }
 
@@ -643,7 +727,7 @@ inline void Virtuoso::QuakeStyleConsole::commandSet(std::istream& is, std::ostre
     }
     else
     {
-        os << "[error] : Variable " << x << " unknown." << std::endl;
+        os << error() << "Variable " << x << " unknown." << std::endl;
     }
 }
 
@@ -655,7 +739,7 @@ inline void Virtuoso::QuakeStyleConsole::commandEcho(std::istream& is, std::ostr
 
     if(!(is >> x))
     {
-        os << "[error] : Syntax error parsing argument" << std::endl;
+        os << error() << "Syntax error parsing argument." << std::endl;
         return;
     }
 
@@ -667,7 +751,7 @@ inline void Virtuoso::QuakeStyleConsole::commandEcho(std::istream& is, std::ostr
     }
     else
     {
-        os << "[error] : Variable "<<x<<" unknown." << std::endl;
+        os << error() << "Variable "<<x<<" unknown." << std::endl;
     }
 }
 
@@ -715,7 +799,7 @@ inline void Virtuoso::QuakeStyleConsole::commandExecute(std::istream& is, std::o
 
         history_buffer.push(lineTemp);
 
-        os<<"> "<<lineTemp<<std::endl;
+        os << echo() << lineTemp<<std::endl;
 
         dereferenceVariables(is, os, lineTemp);
 
@@ -732,7 +816,7 @@ inline void Virtuoso::QuakeStyleConsole::commandExecute(std::istream& is, std::o
 
         if (it == commandTable.end())
         {
-            os << "[error] : command " << x << " unknown" << std::endl;
+            os << error() << "Command " << x << " unknown" << std::endl;
         }
         else
         {
@@ -856,7 +940,7 @@ inline void Virtuoso::QuakeStyleConsole::dereferenceVariables(std::istream& is, 
 
         if(substrEnd == varBase)
         {
-            os << "[error] : EXPECTED IDENTIFIER AT $" << std::endl;
+            os << error() << "EXPECTED IDENTIFIER AT $" << std::endl;
         }
         else
         {
@@ -874,7 +958,7 @@ inline void Virtuoso::QuakeStyleConsole::dereferenceVariables(std::istream& is, 
             }
             else
             {
-                os << "[error] : Variable " << substr << " not found" << std::endl;
+                os << error() << "Variable " << substr << " not found" << std::endl;
             }
         }
     }

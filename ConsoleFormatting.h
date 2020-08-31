@@ -5,8 +5,10 @@
 //  Created by Virtuoso Engine on 8/31/20.
 //
 
-#ifndef ConsoleFormatting_h
-#define ConsoleFormatting_h
+// EndOfLineEscapeStreamScope formatter by Steve132
+
+#ifndef Virtuoso_ConsoleFormatting_h
+#define Virtuoso_ConsoleFormatting_h
 
 #include <iostream>
 #include <sstream>
@@ -14,22 +16,34 @@
 #include <stack>
 #include <regex>
 
-struct EndOfLineEscapeTag
-{
-    std::string ansi_sequence;
-    std::string ansi_reset;
-};
+
+namespace Virtuoso {
+namespace io {
+
+// ------------------------------------------------------//
+/* --------- End of Line Formatting ------------------- */
+// ------------------------------------------------------//
+// This modifier wraps the text in a begin / end string pair
+// This operates on a single line of code automatically.
+// For example with
+// EndOfLineEscapeTag HTML {"<HTML>", "</HTML>"};
+// cout << HTML << myHtmlString << std::endl;
+// will output <HTML> ((myHTMLString)) \n </HTML>
+
+typedef std::pair<std::string, std::string> EndOfLineEscapeTag;
 
 struct EndOfLineEscapeStreamScope
 {
 protected:
+
     EndOfLineEscapeTag tag;
-    std::ostream& out;
+    std::ostream& os;
+
     EndOfLineEscapeStreamScope(const EndOfLineEscapeTag& ttag,std::ostream& tout):
-        out(tout),
-        tag(ttag)
+        tag(ttag),
+        os(tout)
     {
-        out << tag.ansi_sequence; //you can overload this for custom ostream types with a different color interface
+        os << tag.first; //you can overload this for custom ostream types with a different color interface
         //this might also have a stack interface for if you need multiple resets
     }
     friend EndOfLineEscapeStreamScope operator<<(std::ostream& out,const EndOfLineEscapeTag& tg);
@@ -39,26 +53,63 @@ public:
     template<class T>
     EndOfLineEscapeStreamScope& operator<<(T&& t)
     {
-        out << std::forward<T>(t);
+        os << std::forward<T>(t);
         return *this;
     }
 
     EndOfLineEscapeStreamScope& operator<<(std::ostream& (&M)( std::ostream & ))
     {
-        M(out);
+        M(os);
         return *this;
     }
 
     ~EndOfLineEscapeStreamScope()
     {
-        out << tag.ansi_reset;
+        os << tag.second;
     }
 };
 
-inline EndOfLineEscapeStreamScope operator<<(std::ostream& out,const EndOfLineEscapeTag& tg)
+inline EndOfLineEscapeStreamScope operator << (std::ostream& os,const EndOfLineEscapeTag& tg)
 {
-    return EndOfLineEscapeStreamScope(tg,out);
+    return EndOfLineEscapeStreamScope(tg,os);
 }
+
+// ------------------------------------------------------//
+/* --------- Windows terminal setter ------------------- */
+// ------------------------------------------------------//
+
+#ifdef _WIN32
+
+/// Win 10 supports ansi color codes in the terminal.  We use this struct to enable them since they're not enabled by default
+struct WindowsConsoleInit
+{
+    BOOl valueSet = FALSE:
+    WindowsConsoleInit()
+    {
+        HANDLE c = GetStdHandle(STD_OUTPUT_HANDLE);
+        DWORD params = 0;
+        GetConsoleMode(c, &params);
+        params |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
+        valueSet = SetConsoleMode(t, params);
+    }
+};
+
+WindowsConsoleInit g_winConsoleInit; ///< global instance so it'll auto initialize on program start as long as the header is included
+
+#ifdef _WIN32
+bool terminalSupportsColorCodes()
+{
+    return g_winConsoleInit.valueSet;
+}
+#else
+bool terminalSupportsColorCodes()
+{
+    return true; // mac and linux terminals support out of the box
+}
+
+#endif
+
+#endif
 
 
 struct Rule
@@ -332,6 +383,9 @@ void makeGLSLRules()
         r.hasColor = true;
         r.color =  ImVec4(1.0,0.0,1.0,1.0);
     }
+}
+
+}
 }
 
 #endif /* ConsoleFormatting_h */
