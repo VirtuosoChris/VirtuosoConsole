@@ -20,6 +20,7 @@ find_package(OpenGL REQUIRED)
 add_executable(GuiTest guiTest.cpp 
 ../QuakeStyleConsole.h
 ../IMGUIQuakeConsole.h
+../ConsoleFormatting.h
 Depends/imgui/imgui.cpp 
 Depends/imgui/imgui_widgets.cpp
 Depends/imgui/imgui_draw.cpp

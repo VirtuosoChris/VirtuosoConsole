@@ -21,6 +21,8 @@
 #include <imgui/examples/imgui_impl_glfw.h>
 #include <imgui/examples/imgui_impl_glfw.cpp>
 
+#include "../ConsoleFormatting.h"
+
 #include "../IMGUIQuakeConsole.h"
 
 // push glsl state
@@ -68,6 +70,8 @@ struct ConsoleApplication : public GLFWApplication
 
         ms << TEXT_COLOR_RED << "\nRED TEXT\n";
         ms << TEXT_COLOR_RED_BRIGHT << "BRIGHT RED TEXT " << std::endl;
+        
+        ms << TEXT_COLOR_GREEN_BRIGHT;
         
         ImGuiContext* ctx = ImGui::CreateContext();
         ImGui::SetCurrentContext(ctx);

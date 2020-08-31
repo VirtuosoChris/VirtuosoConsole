@@ -9,7 +9,7 @@
 /// For example programs see the demos folder in this repo.
 ///
 /// The easiest way to use this file is to include it and then create an IMGUIQuakeConsole in an application that supports IMGUI rendering,
-/// then call IMGUIQuakeConsole::Render during your application update loop.  CTRL-F IMGUIQuakeConsole class definition and look at the sample code to get started.
+/// then call IMGUIQuakeConsole::Render during your application update loop.  CTRL-F IMGUIQuakeConsole class definition and look at the sample code in the demos filter to get started.
 ///
 /// This file contains base classes, out of which the IMGUIQuakeConsole is composed, and you can experiment with as well.
 ///
