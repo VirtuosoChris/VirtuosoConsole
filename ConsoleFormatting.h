@@ -19,6 +19,32 @@ namespace Virtuoso
 namespace io
 {
 
+const std::string ANSI_TEXT_COLOR_RESET = "\u001b[0m";
+const std::string ANSI_TEXT_COLOR_BLACK = "\u001b[30m";
+const std::string ANSI_TEXT_COLOR_RED = "\u001b[31m";
+const std::string ANSI_TEXT_COLOR_GREEN = "\u001b[32m";
+const std::string ANSI_TEXT_COLOR_YELLOW = "\u001b[33m";
+const std::string ANSI_TEXT_COLOR_BLUE = "\u001b[34m";
+const std::string ANSI_TEXT_COLOR_MAGENTA = "\u001b[35m";
+const std::string ANSI_TEXT_COLOR_CYAN = "\u001b[36m";
+const std::string ANSI_TEXT_COLOR_WHITE = "\u001b[37m";
+const std::string ANSI_TEXT_COLOR_BLACK_BRIGHT = "\u001b[30;1m";
+const std::string ANSI_TEXT_COLOR_RED_BRIGHT = "\u001b[31;1m";
+const std::string ANSI_TEXT_COLOR_GREEN_BRIGHT = "\u001b[32;1m";
+const std::string ANSI_TEXT_COLOR_YELLOW_BRIGHT = "\u001b[33;1m";
+const std::string ANSI_TEXT_COLOR_BLUE_BRIGHT = "\u001b[34;1m";
+const std::string ANSI_TEXT_COLOR_MAGENTA_BRIGHT = "\u001b[35;1m";
+const std::string ANSI_TEXT_COLOR_CYAN_BRIGHT = "\u001b[36;1m";
+const std::string ANSI_TEXT_COLOR_WHITE_BRIGHT = "\u001b[37;1m";
+const std::string ANSI_TEXT_COLOR_BLACK_BKGRND = "\u001b[40m";
+const std::string ANSI_TEXT_COLOR_RED_BKGRND = "\u001b[41m";
+const std::string ANSI_TEXT_COLOR_GREEN_BKGRND = "\u001b[42m";
+const std::string ANSI_TEXT_COLOR_YELLOW_BKGRND = "\u001b[43m";
+const std::string ANSI_TEXT_COLOR_BLUE_BKGRND = "\u001b[44m";
+const std::string ANSI_TEXT_COLOR_MAGENTA_BKGRND = "\u001b[45m";
+const std::string ANSI_TEXT_COLOR_CYAN_BKGRND = "\u001b[46m";
+const std::string ANSI_TEXT_COLOR_WHITE_BKGRND = "\u001b[47m";
+
 // ------------------------------------------------------//
 /* --------- End of Line Formatting ------------------- */
 // ------------------------------------------------------//
@@ -108,34 +134,35 @@ bool terminalSupportsColorCodes()
 
 #endif
 
-struct Rule
-{
-    std::regex rule;
-    ImVec4 color;
-    bool hasColor = false;
-    ImU32 backgroundColor = 0;
-    bool hasBackgroundColor = false;
-    bool changeDefaultColors = false;
-    bool showToken = true;
-    //std::function<void (ColorTokenizer&, const std::string&)> action = DO_NOTHING;
-};
 
-typedef std::vector<Rule> RuleSet;
-
-class RegexFormatter
+struct RegexFormatter
 {
+    struct Rule
+    {
+        std::regex rule;
+        std::function<std::string (const std::string&)> filter = DO_NOTHING;
+
+        inline static std::string DO_NOTHING(const std::string& s){return s;}
+    };
+
+    typedef std::vector<Rule> RuleSet;
+    
     RuleSet rules;
 
-    void matched(Rule &tok, const std::string &str)
+    std::string matched(Rule &tok, const std::string &str)
     {
+        return tok.filter(str);
     }
 
-    void unmatched(const std::string &str)
+    std::string unmatched(const std::string &str)
     {
+        return str;
     }
 
-    void checkRules(const std::string &str)
+    std::string format(const std::string &str)
     {
+        std::stringstream sstr;
+        
         struct SearchParams
         {
             std::smatch match;
@@ -200,9 +227,9 @@ class RegexFormatter
 
             if (priorityMatch == -1)
             {
-                unmatched(str.substr(segmentStart, str.size() - segmentStart));
+                sstr << unmatched(str.substr(segmentStart, str.size() - segmentStart));
 
-                return;
+                return sstr.str();
             }
 
             // handle first match
@@ -216,11 +243,11 @@ class RegexFormatter
                 if (prefix.length() > offset && prefix.length())
                 {
                     std::size_t len = prefix.length() - offset;
-                    unmatched(prefix.substr(offset, len));
+                    sstr << unmatched(prefix.substr(offset, len));
                 }
             }
 
-            matched(rules[priorityMatch], matchStr);
+            sstr << matched(rules[priorityMatch], matchStr);
 
             segmentStart = matches[priorityMatch].offsetOfMatch() + matchStr.length();
 
@@ -228,109 +255,6 @@ class RegexFormatter
     }
 };
 
-extern const std::string glsl_qualifiers[];
-extern const std::string glsl_keywords[];
-extern const std::string glsl_types[];
-extern const std::string glsl_functions[];
-
-extern const std::size_t glsl_qualifiers_length;
-extern const std::size_t glsl_keywords_length;
-extern const std::size_t glsl_types_length;
-extern const std::size_t glsl_functions_length;
-
-const std::string glsl_qualifiers[] =
-    {
-        "const",
-        "in",
-        "inout",
-        "out",
-        "smooth",
-        "flat",
-        "noperspective",
-        "invariant",
-        "centroid",
-        "coherent",
-        "volatile",
-        "restrict",
-        "readonly",
-        "writeonly",
-        "uniform",
-        "buffer",
-        "shared",
-        "sampler",
-        "patch",
-        "binding",
-        "offset",
-        "highp",
-        "mediump",
-        "lowp",
-        "precise",
-};
-
-const std::string glsl_keywords[] = {"subroutine", "return", "break", "if", "for", "while", "do", "discard", "continue", "struct", "switch"};
-
-const std::string glsl_types[] =
-{
-    "void",
-    "bool",
-    "int",
-    "uint",
-    "float",
-    "double",
-    "ivec2", "ivec3", "ivec4",
-    "uvec2", "uvec3", "uvec4",
-    "vec2", "vec3", "vec4",
-    "dvec2", "dvec3", "dvec4",
-    "bvec2", "bvec3", "bvec4",
-    "sampler1D", "sampler2D", "sampler3D",
-    "image1D", "image2D", "image3D",
-    "mat2", "mat3", "mat4",
-    "mat2x2", "mat2x3", "mat2x4",
-    "mat3x2", "mat3x3", "mat3x4",
-    "mat4x2", "mat4x3", "mat4x4",
-    "dmat2", "dmat3", "dmat4",
-    "dmat2x2", "dmat2x3", "dmat2x4",
-    "dmat3x2", "dmat3x3", "dmat3x4",
-    "dmat4x2", "dmat4x3", "dmat4x4",
-    "samplerCube", "imageCube",
-    "sampler2DRect", "image2DRect",
-    "sampler2DArray", "sampler1DArray", "image1DArray", "image2DArray",
-    "samplerBuffer", "imageBuffer",
-    "sampler2DMS", "image2DMS", "sampler2DMSArray", "image2DMSArray",
-    "samplerCubeArray", "imageCubeArray", "sampler1DShadow", "sampler2DShadow", "sampler2DRectShadow", "sampler1DArrayShadow", "sampler2DArrayShadow", "samplerCubeShadow",
-    "samplerCubeArrayShadow",
-    "isampler1D", "isampler2D", "isampler3D",
-    "iimage1D", "iimage2D", "iimage3D",
-    "isamplerCube", "iimageCube", "isampler2DRect",
-    "iimage2DRect", "isampler1DArray", "isampler2DArray", "iimage1DArray", "iimage2DArray", "isamplerBuffer", "iimageBuffer", "isampler2DMS", "iimage2DMS", "isampler2DMSArray", "iimage2DMSArray", "isamplerCubeArray", "iimageCubeArray",
-    "atomic_uint", "usampler1D", "usampler2D", "usampler3D", "uimage1D", "uimage2D", "uimage3D",
-    "usamplerCube", "uimageCube", "usampler2DRect", "uimage2DRect", "usampler1DArray", "usampler2DArray", "uimage1DArray", "uimage2DArray",
-    "usamplerBuffer", "uimageBuffer", "usampler2DMS",
-    "uimage2DMS",
-    "usampler2DMSArray",
-    "uimage2DMSArray", "usamplerCubeArray", "uimageCubeArray"
-};
-
-const std::string glsl_functions[] =
-{
-    "radians", "degrees", "sin", "cos", "tan", "asin", "acos", "atan", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "pow", "exp", "log", "exp2", "log2", "sqrt", "inversesqrt", "abs", "sign",
-    "floor", "trunc", "round", "roundEven", "ceil", "fract", "mod", "min", "max", "clamp", "mix", "step",
-    "smoothstep", "isnan", "isinf", "floatBitsToUint", "floatBitsToInt", "intBitsToFloat", "fma", "frexp",
-    "Idexp", "packUnorm2x16", "packSnorm2x16", "unpackUnorm2x16", "unpackSnorm2x16", "unpackUnorm4x8", "unpackSnorm4x8", "packDouble2x32", "unpackDouble2x32", "packHalf2x16", "unpackHalf2x16",
-    "length", "distance", "dot", "cross", "normalize", "faceforward", "reflect", "refract", "matrixCompMult", "outerProduct", "transpose", "inverse", "determinant",
-    "lessThan", "greaterThan", "lessThanEqual", "greaterThanEqual", "equal", "notEqual", "any", "all", "not", "uaddCarry", "usubBorrow", "umulExtended", "imulExtended", "bitfieldExtract", "bitfieldReverse", "bitfieldInsert", "bitCount", "findLSB", "findMSB", "atomicCounterIncrement",
-    "atomicCounterDecrement", "atomicCounter", "atomicCounterOp", "atomicCounterCompSwap", "atomicCounterCompSwap", "atomicOP", "imageSize", "imageSamples", "imageLoad", "imageStore",
-    "imageAtomicAdd", "imageAtomicMin", "imageAtomicMax", "imageAtomicAnd", "imageAtomicOr", "imageAtomicXor", "imageAtomicExchange", "imageAtomicCompSwap", "dFdx", "dFdy", "dFdxFine", "dFdyFine", "dFdxCoarse", "dFdyCoarse", "fwidth", "fwidthFine", "fwidthCoarse", "interpolateAtCentroid", "interpolateAtSample", "interpolateAtOffset", "noise1", "noisen",
-    "EmitStreamVertex", "EndStreamPrimitive", "EndPrimitive", "EmitVertex", "barrier", "memoryBarrier",
-    "groupMemoryBarrier", "memoryBarrierAtomicCounter", "memoryBarrierShared", "memoryBarrierBuffer",
-    "memoryBarrierImage", "allInvocationsEqual", "allInvocation", "textureSize", "textureQueryLod", "textureQueryLevels", "textureSamples", "texture", "textureLod", "textureProj", "textureOffset",
-    "texelFetch", "texelFetchOffset", "textureProjOffset", "textureLodOffset", "textureProjLod", "textureProjLodOffset", "textureGrad", "textureGradOffset", "textureProjGrad", "textureProjGradOffset", "textureGather", "textureGatherOffset", "textureGatherOffsets"
-};
-
-const std::size_t glsl_qualifiers_length = sizeof(glsl_qualifiers) / sizeof(std::string);
-const std::size_t glsl_keywords_length = sizeof(glsl_keywords) / sizeof(std::string);
-const std::size_t glsl_types_length = sizeof(glsl_types) / sizeof(std::string);
-const std::size_t glsl_functions_length = sizeof(glsl_functions) / sizeof(std::string);
 
 std::string makeKeywordsRegexStr(const std::string keywords[], std::size_t numKeywords)
 {
@@ -345,50 +269,12 @@ std::string makeKeywordsRegexStr(const std::string keywords[], std::size_t numKe
     return (sstr.str());
 }
 
-void makeGLSLRules()
+// use std bind to set this as a 'filter' for regex formatter.  see guiTest.cpp example in 'demos' folder for example glsl syntax highlighting
+std::string highlightKeyword(const std::string& format, const std::string& str)
 {
-    {
-        Rule r;
-        r.rule = std::regex("<glsl>");
-        r.hasColor = true;
-        r.color = ImVec4(1.0, 0.0, 1.0, 1.0);
-    }
-
-    {
-        Rule r;
-        r.rule = std::regex(makeKeywordsRegexStr(glsl_types, glsl_types_length));
-        r.hasColor = true;
-        r.color = ImVec4(0.0, 0.0, 1.0, 1.0);
-    }
-
-    {
-        Rule r;
-        r.rule = std::regex(makeKeywordsRegexStr(glsl_keywords, glsl_keywords_length));
-        r.hasColor = true;
-        r.color = ImVec4(0.0, 0.0, 1.0, 1.0);
-    }
-
-    {
-        Rule r;
-        r.rule = std::regex(makeKeywordsRegexStr(glsl_functions, glsl_functions_length));
-        r.hasColor = true;
-        r.color = ImVec4(0.0, 0.0, 1.0, 1.0);
-    }
-
-    {
-        Rule r;
-        r.rule = std::regex(makeKeywordsRegexStr(glsl_qualifiers, glsl_qualifiers_length));
-        r.hasColor = true;
-        r.color = ImVec4(0.0, 0.0, 1.0, 1.0);
-    }
-
-    {
-        Rule r;
-        r.rule = std::regex("</glsl>");
-        r.hasColor = true;
-        r.color = ImVec4(1.0, 0.0, 1.0, 1.0);
-    }
+    return format + str + "\u001b[0m";
 }
+
 
 } // namespace io
 } // namespace Virtuoso

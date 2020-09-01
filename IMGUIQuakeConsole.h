@@ -370,7 +370,7 @@ inline void IMGUIOstream::render()
         ImGui::NewLine();
     }
 
-    if (shouldScrollToBottom || (autoScrollEnabled && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()))
+    if ((autoScrollEnabled && shouldScrollToBottom) || (autoScrollEnabled && ImGui::GetScrollY() >= ImGui::GetScrollMaxY()))
         ImGui::SetScrollHereY(1.0f);
     shouldScrollToBottom = false;
 }
