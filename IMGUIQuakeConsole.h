@@ -113,12 +113,18 @@ enum AnsiColorCode
 class ConsoleBuf : public std::streambuf
 {
   public:
-    struct TextSequence
+    
+    struct FormattingParams
     {
         ImVec4 textColor = ImVec4(1.0, 1.0, 1.0, 1.0);
         ImU32 backgroundColor = 0;
-        std::string text = "";
         bool hasBackgroundColor = false;
+    };
+    
+    struct TextSequence
+    {
+        FormattingParams style;
+        std::string text = "";
     };
 
     struct Line
@@ -131,12 +137,15 @@ class ConsoleBuf : public std::streambuf
 
     void clear();
 
+    inline void applyDefaultStyle(){currentStyle = defaultStyle;}
     inline const Line &currentLine() const { return lines[lines.size() - 1]; }
     inline const std::string &curStr() const { return currentLine().curSequence().text; }
 
     ConsoleBuf();
 
     inline const std::vector<Line> &getLines() const { return lines; }
+    
+    FormattingParams defaultStyle; ///< can change default text color and background
 
   protected:
     /// change formatting state based on an integer code in the ansi-code input stream.  called by the streambuf methods
@@ -145,10 +154,8 @@ class ConsoleBuf : public std::streambuf
     // -- streambuf overloads --
     int overflow(int c);
 
-    // current formatting
-    ImVec4 textColor = ImVec4(1.0, 1.0, 1.0, 1.0); ///< text color
-    ImU32 backgroundColor = 0;                     ///< background color, if enabled
-    bool hasBackgroundColor = false;               ///< current formating has background color
+    FormattingParams currentStyle; ///< // current formatting
+    
     bool brightText = false;                       ///< saw ansi code for bright-mode text
     AnsiColorCode textCode = ANSI_RESET;           ///< ANSI color code we last saw for text
 
@@ -241,6 +248,9 @@ class IMGUIOstream : public std::ostream
 
     /// Renders the control in whatever the surrounding IMGUI context is.
     void render();
+    
+    inline void applyDefaultStyle(){strb.applyDefaultStyle();}
+    inline ConsoleBuf::FormattingParams& defaultStyle(){return strb.defaultStyle;}
 };
 
 /// Quake style console : IMGUI Widget
@@ -345,15 +355,15 @@ inline void IMGUIOstream::render()
 
         for (ConsoleBuf::TextSequence &seq : line.sequences)
         {
-            if (seq.hasBackgroundColor)
+            if (seq.style.hasBackgroundColor)
             {
                 ImVec2 textSize = ImGui::CalcTextSize(seq.text.c_str());
                 ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
                 ImVec2 sum = ImVec2(textSize[0] + cursorScreenPos[0], textSize[1] + cursorScreenPos[1]);
-                ImGui::GetWindowDrawList()->AddRectFilled(cursorScreenPos, sum, seq.backgroundColor);
+                ImGui::GetWindowDrawList()->AddRectFilled(cursorScreenPos, sum, seq.style.backgroundColor);
             }
 
-            ImGui::TextColored(seq.textColor, seq.text.c_str());
+            ImGui::TextColored(seq.style.textColor, seq.text.c_str());
             ImGui::SameLine();
         }
 
@@ -719,14 +729,15 @@ inline void ConsoleBuf::processANSICode(int code)
     switch (code)
     {
     case ANSI_RESET:
-        hasBackgroundColor = false;
-        textColor = getAnsiTextColor((AnsiColorCode)code);
+        
+        currentStyle = defaultStyle;
+            
         break;
     case ANSI_BRIGHT_TEXT:
         brightText = true;
         if (textCode)
         {
-            textColor = getAnsiTextColorBright(textCode);
+            currentStyle.textColor = getAnsiTextColorBright(textCode);
         }
         break;
     case ANSI_BLACK:
@@ -741,11 +752,11 @@ inline void ConsoleBuf::processANSICode(int code)
 
         if (brightText)
         {
-            textColor = getAnsiTextColorBright((AnsiColorCode)code);
+            currentStyle.textColor = getAnsiTextColorBright((AnsiColorCode)code);
         }
         else
         {
-            textColor = getAnsiTextColor((AnsiColorCode)code);
+            currentStyle.textColor = getAnsiTextColor((AnsiColorCode)code);
         }
         break;
     case ANSI_BLACK_BKGRND:
@@ -756,8 +767,8 @@ inline void ConsoleBuf::processANSICode(int code)
     case ANSI_MAGENTA_BKGRND:
     case ANSI_CYAN_BKGRND:
     case ANSI_WHITE_BKGRND:
-        hasBackgroundColor = true;
-        backgroundColor = getANSIBackgroundColor((AnsiColorCode)code);
+        currentStyle.hasBackgroundColor = true;
+        currentStyle.backgroundColor = getANSIBackgroundColor((AnsiColorCode)code);
         break;
     default:
         std::cerr << "unknown ansi code " << code << " in output\n";
@@ -795,7 +806,7 @@ inline int ConsoleBuf::overflow(int c)
 
                     brightText = false;
 
-                    currentLine().sequences.push_back({textColor, backgroundColor, "", hasBackgroundColor});
+                    currentLine().sequences.push_back({currentStyle, "" });
 
                     break;
                 }
@@ -848,7 +859,7 @@ inline int ConsoleBuf::overflow(int c)
             {
                 //currentline add \n
                 lines.push_back(Line());
-                currentLine().sequences.push_back(TextSequence({textColor, backgroundColor, "", hasBackgroundColor}));
+                currentLine().sequences.push_back(TextSequence({currentStyle, "",}));
                 break;
             }
             default:

@@ -127,27 +127,6 @@ struct ConsoleApplication : public GLFWApplication
         imguiRenderer.renderGUI(ImGui::GetDrawData());
     }
     
-    std::string makeKeywordsRegexStr(const std::string keywords[], std::size_t numKeywords)
-    {
-        std::stringstream sstr;
-        
-        sstr << "\\b" << keywords[0] << "\\b";
-        for (int i = 1 ; i < numKeywords; i++)
-        {
-            sstr << '|' << "\\b"<< keywords[i] <<"\\b";
-        }
-        
-        return (sstr.str());
-    }
-    
-    void extraHighlightingRules()
-    {
-        /*Rule r;
-        r.rule = std::regex("<glsl>");
-        r.hasColor = true;
-        r.color =  ImVec4(1.0,0.0,1.0,1.0);*/
-    }
-    
     void doGLSLTest()
     {
         const std::string& printSrc = R"STRING(

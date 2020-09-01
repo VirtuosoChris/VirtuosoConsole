@@ -150,7 +150,7 @@ class QuakeStyleConsole
     };
 
     /// ANSI color codes wrap the output in the scope.
-    inline static ConsoleStyling ConsoleStylingColor() { return {{"\u001b[31;1m[error]: ", "\u001b[0m"}, {"\u001b[33;1m[warning]: ", "\u001b[0m"}, {"\u001b[32;1m> ", "\u001b[0m"}}; }
+    inline static ConsoleStyling ConsoleStylingColor() { return {{"\u001b[37;41;1m[error]: ", "\u001b[0m"}, {"\u001b[33;1m[warning]: ", "\u001b[0m"}, {"\u001b[32;1m> ", "\u001b[0m"}}; }
 
     /// Styling parameters with no colors, just tags
     inline static ConsoleStyling ConsoleStylingPlain() { return {{"[error]: ", ""}, {"[warning]: ", ""}, {"> ", ""}}; }
