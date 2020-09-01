@@ -42,7 +42,7 @@ struct GLFWApplication
         bool _newValue;
     public:
         
-        double intervalLength = 1.025f; // in seconds
+        double intervalLength = 1.0f; // in seconds
         
         double value()
         {
