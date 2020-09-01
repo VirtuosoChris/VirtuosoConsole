@@ -293,6 +293,18 @@ std::string highlightKeyword(const std::string& format, const std::string& str)
     return format + str + "\u001b[0m";
 }
 
+// ----------------------
+// -------- MISC --------
+// ----------------------
+
+struct membuf: std::streambuf
+{
+    membuf(const char* begin, const char* end)
+    {
+         this->setg((char*)begin, (char*)begin, (char*)end);
+    }
+};
+
 
 } // namespace io
 } // namespace Virtuoso
