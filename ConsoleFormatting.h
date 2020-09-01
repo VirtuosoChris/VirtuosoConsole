@@ -98,6 +98,24 @@ inline EndOfLineEscapeStreamScope operator<<(std::ostream &os, const EndOfLineEs
     return EndOfLineEscapeStreamScope(tg, os);
 }
 
+
+
+// ------------------------------------------------------//
+/* --------- Streambuf Swapper-------------------------- */
+// ------------------------------------------------------//
+
+/// streambuf_swapper
+/// Steve132
+/// RAII method of swapping a global iostream buffer
+/// https://stackoverflow.com/questions/14860267/what-can-go-wrong-if-cout-rdbuf-is-used-to-switch-buffer-and-never-set-it-back
+struct streambuf_swapper {
+    std::ios &m_s;
+    std::streambuf *m_buf;
+
+    streambuf_swapper(std::ios &s, std::streambuf *buf) : m_s(s), m_buf(s.rdbuf(buf)) {}
+    ~streambuf_swapper() { m_s.rdbuf(m_buf); }
+};
+
 // ------------------------------------------------------//
 /* --------- Windows terminal setter ------------------- */
 // ------------------------------------------------------//
