@@ -129,7 +129,7 @@ struct streambuf_swapper {
 /// Win 10 supports ansi color codes in the terminal.  We use this struct to enable them since they're not enabled by default
 struct WindowsConsoleInit
 {
-    BOOL valueSet = FALSE;
+    BOOL  valueSet = FALSE;
     WindowsConsoleInit()
     {
         HANDLE c = GetStdHandle(STD_OUTPUT_HANDLE);
