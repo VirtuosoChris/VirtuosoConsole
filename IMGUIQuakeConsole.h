@@ -143,7 +143,7 @@ class ConsoleBuf : public std::streambuf
 
     ConsoleBuf();
 
-    inline const std::vector<Line> &getLines() const { return lines; }
+    inline const std::vector<Line>& getLines() const { return lines; }
     
     FormattingParams defaultStyle; ///< can change default text color and background
 
@@ -348,12 +348,12 @@ inline void IMGUIOstream::renderInWindow(bool &p_open, const char *title)
 
 inline void IMGUIOstream::render()
 {
-    for (auto line : strb.getLines())
+    for (const ConsoleBuf::Line& line : strb.getLines())
     {
         if (!linePassFilter(line))
             continue;
 
-        for (ConsoleBuf::TextSequence &seq : line.sequences)
+        for (const ConsoleBuf::TextSequence &seq : line.sequences)
         {
             if (seq.style.hasBackgroundColor)
             {
