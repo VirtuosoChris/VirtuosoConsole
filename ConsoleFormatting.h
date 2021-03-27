@@ -8,6 +8,10 @@
 #ifndef Virtuoso_ConsoleFormatting_h
 #define Virtuoso_ConsoleFormatting_h
 
+#ifdef _WIN32
+#include <Windows.h>
+#endif
+
 #include <iostream>
 #include <sstream>
 #include <iterator>
@@ -19,31 +23,31 @@ namespace Virtuoso
 namespace io
 {
 
-const std::string ANSI_TEXT_COLOR_RESET = "\u001b[0m";
-const std::string ANSI_TEXT_COLOR_BLACK = "\u001b[30m";
-const std::string ANSI_TEXT_COLOR_RED = "\u001b[31m";
-const std::string ANSI_TEXT_COLOR_GREEN = "\u001b[32m";
-const std::string ANSI_TEXT_COLOR_YELLOW = "\u001b[33m";
-const std::string ANSI_TEXT_COLOR_BLUE = "\u001b[34m";
-const std::string ANSI_TEXT_COLOR_MAGENTA = "\u001b[35m";
-const std::string ANSI_TEXT_COLOR_CYAN = "\u001b[36m";
-const std::string ANSI_TEXT_COLOR_WHITE = "\u001b[37m";
-const std::string ANSI_TEXT_COLOR_BLACK_BRIGHT = "\u001b[30;1m";
-const std::string ANSI_TEXT_COLOR_RED_BRIGHT = "\u001b[31;1m";
-const std::string ANSI_TEXT_COLOR_GREEN_BRIGHT = "\u001b[32;1m";
-const std::string ANSI_TEXT_COLOR_YELLOW_BRIGHT = "\u001b[33;1m";
-const std::string ANSI_TEXT_COLOR_BLUE_BRIGHT = "\u001b[34;1m";
-const std::string ANSI_TEXT_COLOR_MAGENTA_BRIGHT = "\u001b[35;1m";
-const std::string ANSI_TEXT_COLOR_CYAN_BRIGHT = "\u001b[36;1m";
-const std::string ANSI_TEXT_COLOR_WHITE_BRIGHT = "\u001b[37;1m";
-const std::string ANSI_TEXT_COLOR_BLACK_BKGRND = "\u001b[40m";
-const std::string ANSI_TEXT_COLOR_RED_BKGRND = "\u001b[41m";
-const std::string ANSI_TEXT_COLOR_GREEN_BKGRND = "\u001b[42m";
-const std::string ANSI_TEXT_COLOR_YELLOW_BKGRND = "\u001b[43m";
-const std::string ANSI_TEXT_COLOR_BLUE_BKGRND = "\u001b[44m";
-const std::string ANSI_TEXT_COLOR_MAGENTA_BKGRND = "\u001b[45m";
-const std::string ANSI_TEXT_COLOR_CYAN_BKGRND = "\u001b[46m";
-const std::string ANSI_TEXT_COLOR_WHITE_BKGRND = "\u001b[47m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_RESET = "\u001b[0m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_BLACK = "\u001b[30m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_RED = "\u001b[31m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_GREEN = "\u001b[32m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_YELLOW = "\u001b[33m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_BLUE = "\u001b[34m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_MAGENTA = "\u001b[35m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_CYAN = "\u001b[36m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_WHITE = "\u001b[37m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_BLACK_BRIGHT = "\u001b[30;1m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_RED_BRIGHT = "\u001b[31;1m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_GREEN_BRIGHT = "\u001b[32;1m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_YELLOW_BRIGHT = "\u001b[33;1m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_BLUE_BRIGHT = "\u001b[34;1m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_MAGENTA_BRIGHT = "\u001b[35;1m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_CYAN_BRIGHT = "\u001b[36;1m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_WHITE_BRIGHT = "\u001b[37;1m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_BLACK_BKGRND = "\u001b[40m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_RED_BKGRND = "\u001b[41m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_GREEN_BKGRND = "\u001b[42m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_YELLOW_BKGRND = "\u001b[43m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_BLUE_BKGRND = "\u001b[44m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_MAGENTA_BKGRND = "\u001b[45m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_CYAN_BKGRND = "\u001b[46m";
+inline constexpr std::string_view ANSI_TEXT_COLOR_WHITE_BKGRND = "\u001b[47m";
 
 // ------------------------------------------------------//
 /* --------- End of Line Formatting ------------------- */
@@ -125,25 +129,27 @@ struct streambuf_swapper {
 /// Win 10 supports ansi color codes in the terminal.  We use this struct to enable them since they're not enabled by default
 struct WindowsConsoleInit
 {
-    BOOl valueSet = FALSE : WindowsConsoleInit()
+    BOOL valueSet = FALSE;
+    WindowsConsoleInit()
     {
         HANDLE c = GetStdHandle(STD_OUTPUT_HANDLE);
         DWORD params = 0;
         GetConsoleMode(c, &params);
         params |= ENABLE_VIRTUAL_TERMINAL_PROCESSING;
-        valueSet = SetConsoleMode(t, params);
+        valueSet = SetConsoleMode(c, params);
     }
 };
 
-WindowsConsoleInit g_winConsoleInit; ///< global instance so it'll auto initialize on program start as long as the header is included
+extern WindowsConsoleInit g_winConsoleInit; ///< global instance so it'll auto initialize on program start as long as the header is included
 
 #ifdef _WIN32
-bool terminalSupportsColorCodes()
+
+inline bool terminalSupportsColorCodes()
 {
     return g_winConsoleInit.valueSet;
 }
 #else
-bool terminalSupportsColorCodes()
+inline bool terminalSupportsColorCodes()
 {
     return true; // mac and linux terminals support out of the box
 }
@@ -274,7 +280,7 @@ struct RegexFormatter
 };
 
 
-std::string makeKeywordsRegexStr(const std::string keywords[], std::size_t numKeywords)
+inline std::string makeKeywordsRegexStr(const std::string keywords[], std::size_t numKeywords)
 {
     std::stringstream sstr;
 
@@ -288,7 +294,7 @@ std::string makeKeywordsRegexStr(const std::string keywords[], std::size_t numKe
 }
 
 // use std bind to set this as a 'filter' for regex formatter.  see guiTest.cpp example in 'demos' folder for example glsl syntax highlighting
-std::string highlightKeyword(const std::string& format, const std::string& str)
+inline std::string highlightKeyword(const std::string& format, const std::string& str)
 {
     return format + str + "\u001b[0m";
 }
@@ -310,3 +316,14 @@ struct membuf: std::streambuf
 } // namespace Virtuoso
 
 #endif /* ConsoleFormatting_h */
+
+#if defined(ConsoleFormatting_Implementation)
+namespace Virtuoso
+{
+    namespace io
+    {
+        WindowsConsoleInit g_winConsoleInit; ///< global instance so it'll auto initialize on program start as long as the header is included
+    }
+}
+#endif
+

@@ -45,9 +45,9 @@
 namespace Virtuoso
 {
 
-const ImVec4 COMMENT_COLOR = ImVec4(1.0f, 0.8f, 0.6f, 1.0f);
-const ImVec4 ERROR_COLOR = ImVec4(2.0f, 0.2f, 0.2f, 1.0f);
-const ImVec4 WARNING_COLOR = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
+inline const ImVec4 COMMENT_COLOR = ImVec4(1.0f, 0.8f, 0.6f, 1.0f);
+inline const ImVec4 ERROR_COLOR = ImVec4(2.0f, 0.2f, 0.2f, 1.0f);
+inline const ImVec4 WARNING_COLOR = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
 
 #define RED_BKGRND_COLOR IM_COL32(255, 0, 0, 255);
 #define GREEN_BKGRND_COLOR IM_COL32(0, 255, 0, 255);
@@ -57,31 +57,31 @@ const ImVec4 WARNING_COLOR = ImVec4(1.0f, 1.0f, 0.0f, 1.0f);
 #define CYAN_BKGRND_COLOR IM_COL32(0, 255, 255, 255);
 #define WHITE_BKGRND_COLOR IM_COL32(255, 255, 255, 255);
 
-const std::string TEXT_COLOR_RESET = "\u001b[0m";
-const std::string TEXT_COLOR_BLACK = "\u001b[30m";
-const std::string TEXT_COLOR_RED = "\u001b[31m";
-const std::string TEXT_COLOR_GREEN = "\u001b[32m";
-const std::string TEXT_COLOR_YELLOW = "\u001b[33m";
-const std::string TEXT_COLOR_BLUE = "\u001b[34m";
-const std::string TEXT_COLOR_MAGENTA = "\u001b[35m";
-const std::string TEXT_COLOR_CYAN = "\u001b[36m";
-const std::string TEXT_COLOR_WHITE = "\u001b[37m";
-const std::string TEXT_COLOR_BLACK_BRIGHT = "\u001b[30;1m";
-const std::string TEXT_COLOR_RED_BRIGHT = "\u001b[31;1m";
-const std::string TEXT_COLOR_GREEN_BRIGHT = "\u001b[32;1m";
-const std::string TEXT_COLOR_YELLOW_BRIGHT = "\u001b[33;1m";
-const std::string TEXT_COLOR_BLUE_BRIGHT = "\u001b[34;1m";
-const std::string TEXT_COLOR_MAGENTA_BRIGHT = "\u001b[35;1m";
-const std::string TEXT_COLOR_CYAN_BRIGHT = "\u001b[36;1m";
-const std::string TEXT_COLOR_WHITE_BRIGHT = "\u001b[37;1m";
-const std::string TEXT_COLOR_BLACK_BKGRND = "\u001b[40m";
-const std::string TEXT_COLOR_RED_BKGRND = "\u001b[41m";
-const std::string TEXT_COLOR_GREEN_BKGRND = "\u001b[42m";
-const std::string TEXT_COLOR_YELLOW_BKGRND = "\u001b[43m";
-const std::string TEXT_COLOR_BLUE_BKGRND = "\u001b[44m";
-const std::string TEXT_COLOR_MAGENTA_BKGRND = "\u001b[45m";
-const std::string TEXT_COLOR_CYAN_BKGRND = "\u001b[46m";
-const std::string TEXT_COLOR_WHITE_BKGRND = "\u001b[47m";
+inline constexpr std::string_view TEXT_COLOR_RESET = "\u001b[0m";
+inline constexpr std::string_view TEXT_COLOR_BLACK = "\u001b[30m";
+inline constexpr std::string_view TEXT_COLOR_RED = "\u001b[31m";
+inline constexpr std::string_view TEXT_COLOR_GREEN = "\u001b[32m";
+inline constexpr std::string_view TEXT_COLOR_YELLOW = "\u001b[33m";
+inline constexpr std::string_view TEXT_COLOR_BLUE = "\u001b[34m";
+inline constexpr std::string_view TEXT_COLOR_MAGENTA = "\u001b[35m";
+inline constexpr std::string_view TEXT_COLOR_CYAN = "\u001b[36m";
+inline constexpr std::string_view TEXT_COLOR_WHITE = "\u001b[37m";
+inline constexpr std::string_view TEXT_COLOR_BLACK_BRIGHT = "\u001b[30;1m";
+inline constexpr std::string_view TEXT_COLOR_RED_BRIGHT = "\u001b[31;1m";
+inline constexpr std::string_view TEXT_COLOR_GREEN_BRIGHT = "\u001b[32;1m";
+inline constexpr std::string_view TEXT_COLOR_YELLOW_BRIGHT = "\u001b[33;1m";
+inline constexpr std::string_view TEXT_COLOR_BLUE_BRIGHT = "\u001b[34;1m";
+inline constexpr std::string_view TEXT_COLOR_MAGENTA_BRIGHT = "\u001b[35;1m";
+inline constexpr std::string_view TEXT_COLOR_CYAN_BRIGHT = "\u001b[36;1m";
+inline constexpr std::string_view TEXT_COLOR_WHITE_BRIGHT = "\u001b[37;1m";
+inline constexpr std::string_view TEXT_COLOR_BLACK_BKGRND = "\u001b[40m";
+inline constexpr std::string_view TEXT_COLOR_RED_BKGRND = "\u001b[41m";
+inline constexpr std::string_view TEXT_COLOR_GREEN_BKGRND = "\u001b[42m";
+inline constexpr std::string_view TEXT_COLOR_YELLOW_BKGRND = "\u001b[43m";
+inline constexpr std::string_view TEXT_COLOR_BLUE_BKGRND = "\u001b[44m";
+inline constexpr std::string_view TEXT_COLOR_MAGENTA_BKGRND = "\u001b[45m";
+inline constexpr std::string_view TEXT_COLOR_CYAN_BKGRND = "\u001b[46m";
+inline constexpr std::string_view TEXT_COLOR_WHITE_BKGRND = "\u001b[47m";
 
 enum AnsiColorCode
 {
