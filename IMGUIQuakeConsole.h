@@ -719,7 +719,11 @@ inline std::streamsize MultiStreamBuf::xsputn(const char *s, std::streamsize n)
 
 inline void ConsoleBuf::clear()
 {
-    lines.clear();
+    // swap forces reallocation, unlike clear
+    std::vector<Line> x;
+    lines.swap(x);
+    //lines.clear();
+
     lines.push_back(Line());
     currentLine().sequences.push_back(TextSequence()); // start a new run of chars with default formatting
 }
