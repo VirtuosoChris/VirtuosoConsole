@@ -40,6 +40,7 @@
 
 //dependencies
 #include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
 #include "QuakeStyleConsole.h"
 
 namespace Virtuoso
@@ -198,7 +199,7 @@ class MultiStream : public std::ostream
 struct IMGUIInputLine
 {
   private:
-    char InputBuf[256];       ///< buffer user is typing into currently
+    std::string InputBuf;       ///< buffer user is typing into currently
     std::stringstream stream; ///< stream that input lines accumulate into on enter presses
 
   public:
@@ -889,7 +890,6 @@ inline ConsoleBuf::ConsoleBuf()
 
 inline IMGUIInputLine::IMGUIInputLine()
 {
-    InputBuf[0] = '\0';
 }
 
 inline std::istream &IMGUIInputLine::getStream()
@@ -944,20 +944,24 @@ inline bool IMGUIInputLine::render()
     // Command-line
     bool reclaim_focus = false;
 
-    if (ImGui::InputText("Input", InputBuf, IM_ARRAYSIZE(InputBuf), input_text_flags, &TextEditCallbackStub, (void *)(&textCallbacks)))
+    if (ImGui::InputText("Input", &InputBuf, input_text_flags, &TextEditCallbackStub, (void*)(&textCallbacks)))
     {
-        rval = true;
-        char *s = InputBuf;
+        reclaim_focus = true;
+
+        char* s = InputBuf.data();
         Strtrim(s);
 
-        auto pos1 = stream.tellp(); // save pos1
-        stream << s;                // write
-        stream << std::endl;
-        stream.seekg(pos1);
+        if (InputBuf.length() && strlen(s))
+        {
+            rval = true;
 
-        strcpy(s, "");
+            auto pos1 = stream.tellp(); // save pos1
+            stream << s;                // write
+            stream << std::endl;
+            stream.seekg(pos1);
 
-        reclaim_focus = true;
+            strcpy(s, "");
+        }
     }
 
     // Auto-focus on window apparition

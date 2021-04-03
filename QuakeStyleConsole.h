@@ -44,6 +44,7 @@
 #include <functional>
 #include <sstream>
 #include <memory>
+#include <string>
 
 namespace Virtuoso
 {
@@ -731,13 +732,17 @@ inline void Virtuoso::QuakeStyleConsole::commandExecute(std::istream &is, std::o
     {
         ch = is.peek();
 
-        if (ch == '#')
+        if (ch == std::char_traits<char>::eof())
+        {
+            is.get(ch);
+            return;
+        }
+        else if (ch == '#')
         {
             std::string tmp;
             getline(is, tmp);
             return;
         } //if newline we will not parse anything else
-
         else if (std::isspace(ch))
         {
             is.get(ch);
