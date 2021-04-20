@@ -272,7 +272,7 @@ class IMGUIQuakeConsole : public MultiStream
 
     void ClearLog(); ///< Clear the ostream
 
-    void render(const char *title, bool *p_open); ///< Renders an IMGUI window implementation of the console
+    void render(const char *title, bool& p_open); ///< Renders an IMGUI window implementation of the console
 
     IMGUIQuakeConsole();
 
@@ -398,11 +398,13 @@ inline void IMGUIQuakeConsole::ClearLog() { os.Clear(); }
 
 inline void IMGUIQuakeConsole::optionsMenu() { ImGui::Checkbox("Auto-scroll", &os.autoScrollEnabled); }
 
-inline void IMGUIQuakeConsole::render(const char *title, bool *p_open)
+inline void IMGUIQuakeConsole::render(const char *title, bool& p_open)
 {
+    if (!p_open) return;
+
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 
-    if (!ImGui::Begin(title, p_open))
+    if (!ImGui::Begin(title, &p_open))
     {
         ImGui::End();
         return;
@@ -416,7 +418,7 @@ inline void IMGUIQuakeConsole::render(const char *title, bool *p_open)
     if (ImGui::BeginPopupContextItem())
     {
         if (ImGui::MenuItem("Close Console"))
-            *p_open = false;
+            p_open = false;
         ImGui::EndPopup();
     }
 
