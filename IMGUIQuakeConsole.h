@@ -266,6 +266,8 @@ class IMGUIQuakeConsole : public MultiStream
     IMGUIInputLine is;               ///< IMGUI input line
     std::size_t prevLineCount = 0;   ///< previous line count for os; used to autoscroll when os gets a new line.
 
+    ImFont* font = nullptr;
+
     int HistoryPos = -1; ///< index into the console history buffer, for when we press up/down arrow to scroll previous commands
 
     float fontScale = 1.2f; ///< text scale for the console widget window
@@ -402,6 +404,11 @@ inline void IMGUIQuakeConsole::render(const char *title, bool& p_open)
 {
     if (!p_open) return;
 
+    if (font)
+    {
+        ImGui::PushFont(font);
+    }
+
     ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 
     if (!ImGui::Begin(title, &p_open))
@@ -487,6 +494,11 @@ inline void IMGUIQuakeConsole::render(const char *title, bool& p_open)
 
         // On command input, we scroll to bottom even if AutoScroll==false
         os.shouldScrollToBottom = true;
+    }
+
+    if (font)
+    {
+        ImGui::PopFont();
     }
 
     ImGui::End();
